@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Збирач Зірок: 0.7.1 NEW ICE RECORD!</title>
     <style>
+        /* ... (УСІ СТИЛІ ЗАЛИШАЮТЬСЯ БЕЗ ЗМІН) ... */
         html {
             background-color: #050505;
             width: 100%;
@@ -777,16 +778,19 @@
         ];
 
         // --- АУДІО (PLAYLIST) ---
+        // !!! ОНОВЛЕНО: MP3 замінено на OGG для кращої сумісності декодування !!!
+        // ПРИМІТКА: Якщо ви хочете використовувати обидва, змініть рядок наприклад на: "menu": ["menu.ogg", "menu.mp3"]
         const sfxFiles = {
-            menu: "menu.mp3", shop: "shop.mp3", loose: "loose.mp3",
-            pickup: "coin.mp3", hit: "hit.mp3", levelup: "levelup.mp3", heal: "heal.mp3", bonus: "bonus.mp3", freeze: "freeze.mp3",
-            click: "click.mp3", buy: "buy.mp3", hover: "hover.mp3",
-            death_rock: "death_rock.mp3", gameover: "gameover.mp3",
-            pause: "pause.mp3"
+            menu: "menu.ogg", shop: "shop.ogg", loose: "loose.ogg",
+            pickup: "coin.ogg", hit: "hit.ogg", levelup: "levelup.ogg", heal: "heal.ogg", bonus: "bonus.ogg", freeze: "freeze.ogg",
+            click: "click.ogg", buy: "buy.ogg", hover: "hover.ogg",
+            death_rock: "death_rock.ogg", gameover: "gameover.ogg",
+            pause: "pause.ogg"
         };
+        // !!! ОНОВЛЕНО: MP3 замінено на OGG для кращої сумісності декодування !!!
         const musicFiles = [
-            "music_1.mp3", "music_2.mp3", "music_3.mp3", "music_4.mp3", "music_5.mp3",
-            "music_6.mp3", "music_7.mp3", "music_8.mp3", "music_9.mp3", "music_10.mp3"
+            "music_1.ogg", "music_2.ogg", "music_3.ogg", "music_4.ogg", "music_5.ogg",
+            "music_6.ogg", "music_7.ogg", "music_8.ogg", "music_9.ogg", "music_10.ogg"
         ];
         
         const soundPools = {};
@@ -804,21 +808,27 @@
         function loadSounds() {
             // SFX
             for (let key in sfxFiles) {
+                // ПІДТРИМКА МАСИВУ: Якщо sfxFiles[key] є масивом, вибираємо перший елемент або перевіряємо формати
+                let src = Array.isArray(sfxFiles[key]) ? sfxFiles[key][0] : sfxFiles[key]; 
+
                 if (key !== 'menu' && key !== 'shop' && key !== 'gameover' && key !== 'pause') {
                     soundPools[key] = [];
                     for(let i=0; i<POOL_SIZE; i++) {
-                        let a = new Audio(sfxFiles[key]);
+                        let a = new Audio(src);
                         a.preload = 'auto'; 
                         soundPools[key].push(a);
                     }
                 }
-                sounds[key] = new Audio(sfxFiles[key]);
+                sounds[key] = new Audio(src);
                 if (key === 'menu' || key === 'shop' || key === 'gameover' || key === 'pause') sounds[key].loop = true;
             }
             // MUSIC
             musicFiles.forEach((file, index) => {
                 let key = 'track_' + index;
-                sounds[key] = new Audio(file);
+                // ПІДТРИМКА МАСИВУ: Якщо file є масивом, вибираємо перший елемент або перевіряємо формати
+                let src = Array.isArray(file) ? file[0] : file;
+
+                sounds[key] = new Audio(src);
                 // ВИПРАВЛЕННЯ: Використовуємо onended замість addEventListener
                 sounds[key].onended = function() {
                     if (currentMusicIndex === index && isGameRunning) {
@@ -1213,7 +1223,7 @@
         });
         document.addEventListener("keyup", (e) => {
             if (isDemoMode) return;
-            if(e.key === "Right" || e.key === "ArrowRight" || e.key === "d") rightPressed = false;
+            if(e.key === "Right" || e.key === "ArrowRight" || e.key === "d") leftPressed = false;
             if(e.key === "Left" || e.key === "ArrowLeft" || e.key === "a") leftPressed = false;
         });
 
