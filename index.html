@@ -1,0 +1,2441 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Збирач Зірок: 0.7.1 NEW ICE RECORD!</title>
+    <style>
+        html {
+            background-color: #050505;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none; 
+            touch-action: none; 
+            background-image: radial-gradient(circle at center, #2a2a2a 0%, #000000 70%);
+            transition: transform 0.5s ease;
+        }
+
+        /* ZOOM 50% */
+        body.mobile-zoomed {
+            transform: scale(0.5);
+            transform-origin: center center;
+            width: 200vw;
+            height: 200vh;
+            position: fixed;
+            left: -50vw;
+            top: -50vh;
+        }
+
+        /* --- UI --- */
+        #topUIBar {
+            display: flex; gap: 15px; margin-bottom: 20px; z-index: 20;
+            transition: opacity 0.5s; opacity: 1;
+            align-items: center;
+            flex-wrap: wrap; 
+            justify-content: center;
+        }
+        #topUIBar.hidden { opacity: 0; pointer-events: none; }
+
+        .ui-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            padding: 10px 20px; border-radius: 15px;
+            font-size: 18px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            min-width: 80px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .run-coins { font-size: 16px; color: #ffd700; margin-left: 8px; font-weight: normal;}
+
+        #btnMobilePause {
+            background: rgba(255, 165, 0, 0.2);
+            border: 2px solid orange;
+            color: orange;
+            width: 50px; height: 50px;
+            border-radius: 12px;
+            font-size: 24px;
+            display: none; 
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            padding: 0;
+            z-index: 100;
+        }
+        #btnMobilePause:active { transform: scale(0.9); background: orange; color: black; }
+        body.mobile-active #btnMobilePause { display: flex; }
+
+        /* --- CONTAINER --- */
+        #glowContainer {
+            position: relative; 
+            padding: 0;
+            border-radius: 12px; 
+            background-color: #505050; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+            border: 2px solid rgba(255,255,255,0.1); 
+        }
+
+        /* --- GAME WRAPPER --- */
+        #gameWrapper {
+            position: relative; width: 900px; height: 600px;
+            border-radius: 10px; 
+            background-color: #252525;
+            overflow: hidden;
+            background-size: cover; 
+            background-position: center;
+            background-repeat: no-repeat;
+            touch-action: none;
+        }
+        
+        #hitOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 7;
+            box-shadow: inset 0 0 0 0 red;
+            transition: box-shadow 0.1s;
+            border-radius: 10px;
+        }
+
+        #comboOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+            box-shadow: inset 0 0 0px transparent;
+            opacity: 0;
+            transition: opacity 0.1s linear, box-shadow 0.1s linear;
+            border-radius: 10px;
+            mix-blend-mode: screen; 
+        }
+        
+        #freezeOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 6;
+            background: radial-gradient(circle, transparent 50%, rgba(0, 247, 255, 0.3) 100%);
+            opacity: 0;
+            transition: opacity 1s ease; 
+            border-radius: 10px;
+        }
+
+        canvas { 
+            display: block; width: 100%; height: 100%; z-index: 1; touch-action: none; 
+            transition: filter 1s ease; 
+        }
+        canvas.grayscale-death {
+            filter: grayscale(100%) contrast(1.2);
+        }
+
+        .center-msg {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 80px; font-weight: 900; opacity: 0; 
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s;
+            z-index: 8; pointer-events: none; white-space: nowrap; text-align: center;
+        }
+        #levelUpMessage { color: #ffd700; text-shadow: 0 0 20px #ffd700, 4px 4px 0px #000; font-size: 70px; }
+        #deathMessage { color: #ff0000; text-shadow: 0 0 30px red, 4px 4px 0px #000; font-size: 90px; }
+        #unlockMessage { color: #00ff00; text-shadow: 0 0 30px #00ff00, 4px 4px 0px #000; font-size: 60px; z-index: 20;} 
+        #freezeMessage { color: #00f7ff; text-shadow: 0 0 30px #00f7ff, 4px 4px 0px #000; font-size: 60px; z-index: 20; }
+        
+        .center-msg.active { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+
+        .scene-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); 
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-in-out;
+        }
+        .scene-overlay.visible { opacity: 1; pointer-events: auto; }
+
+        #menuContainer {
+            display: flex; flex-direction: column; align-items: center;
+            width: 100%; height: 100%; justify-content: center;
+        }
+
+        h1 { font-size: 50px; color: #e94560; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 15px rgba(233, 69, 96, 0.5); line-height: 1; text-align: center;}
+        
+        .stats-bar { 
+            display: inline-flex; gap: 30px; margin-bottom: 15px; 
+            background: rgba(255,255,255,0.05); padding: 8px 30px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.1);
+            align-items: center; justify-content: center; backdrop-filter: blur(10px);
+        }
+        .stat-text { font-size: 18px; color: #ddd; font-weight: bold; white-space: nowrap; }
+        .stat-val { color: #ffd700; }
+
+        .game-setup-area {
+            display: flex; gap: 15px; margin-bottom: 20px;
+            align-items: stretch; justify-content: center;
+        }
+        
+        .setup-col {
+            background: rgba(0, 0, 0, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px; padding: 12px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .col-title { color: #00adb5; font-size: 14px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; }
+        
+        .grid-2x2 { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 8px; 
+            width: 190px;
+        }
+
+        .cards-row-modes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 270px; }
+
+        .select-card, .diff-card {
+            width: 100%; height: 70px; 
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; position: relative;
+            backdrop-filter: blur(5px);
+        }
+        .select-card { width: 85px; height: 85px; } 
+
+        .select-card:hover, .diff-card:hover { transform: translateY(-3px); border-color: #888; background: rgba(255, 255, 255, 0.15); }
+        .select-card.active, .diff-card.active { border-color: #00adb5; box-shadow: 0 0 15px rgba(0, 173, 181, 0.4); background: rgba(0, 173, 181, 0.2); }
+        .diff-card.hardcore.active { border-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.4); background: rgba(255, 0, 0, 0.2); }
+        .diff-card.locked { opacity: 0.5; cursor: not-allowed; border-color: #222; }
+        
+        .card-icon, .diff-emoji { font-size: 24px; margin-bottom: 3px; pointer-events: none; }
+        .card-name, .diff-name { font-weight: bold; font-size: 11px; color: #fff; pointer-events: none; text-align: center; line-height: 1.1;}
+        
+        .diff-score { font-size: 10px; color: #f9ed69; margin-top: 2px; font-weight: normal; }
+
+        .lock-icon { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:12px; font-size:20px; color:#888; pointer-events: none;}
+        .lock-desc { font-size: 9px; color:#ccc; margin-top:2px; }
+
+        .bottom-actions { display: flex; gap: 15px; width: 100%; justify-content: center; align-items: center; }
+        
+        button {
+            padding: 12px 25px; font-size: 16px; 
+            background-color: rgba(40, 40, 40, 0.85);
+            color: #ddd; border: 1px solid #777; border-radius: 8px;
+            cursor: pointer; transition: 0.2s; font-weight: bold;
+        }
+        button:hover { background-color: #fff; color: black; transform: scale(1.05); border-color: #fff; }
+        
+        .btn-start { background: #0f3460; border-color: #00adb5; font-size: 22px; padding: 12px 50px; box-shadow: 0 0 20px rgba(15, 52, 96, 0.5); margin: 0 auto; display: block;}
+        .btn-start:hover { background: #00adb5; color: #000; }
+        
+        .action-btn { background: rgba(255, 215, 0, 0.1); border-color: #ffd700; color: #ffd700; font-size: 14px; padding: 8px 18px; }
+        .action-btn:hover { background: #ffd700; color: black; }
+        .setting-btn { background: rgba(150, 150, 150, 0.2); border-color: #aaa; color: #ddd; font-size: 14px; padding: 8px 18px; }
+        .setting-btn:hover { background: #fff; color: black; }
+
+        .mute-btn {
+            width: 35px; height: 35px; padding: 0; font-size: 18px; border-radius: 5px; 
+            background: rgba(255,255,255,0.1); border: 1px solid #777; margin-left: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .mute-btn.muted { background: rgba(231, 76, 60, 0.5); border-color: #c0392b; color: #fff; }
+
+        #btnInfo {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,0.1); border: 1px solid #fff;
+            color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center;
+            padding: 0; cursor: pointer; transition: 0.3s;
+            backdrop-filter: blur(5px); z-index: 50;
+        }
+        #btnInfo:hover { transform: scale(1.1); background: rgba(255,255,255,0.2); box-shadow: 0 0 15px white; color: #ffd700; border-color: #ffd700;}
+
+        .info-content {
+            background: rgba(0,0,0,0.85); 
+            padding: 30px; width: 600px; max-height: 80%;
+            border-radius: 20px; border: 1px solid #00adb5;
+            overflow-y: auto; text-align: left;
+            backdrop-filter: blur(20px); box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+        .info-content h2 { font-size: 28px; color: #00adb5; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .info-content h3 { font-size: 18px; color: #ffd700; margin-top: 15px; margin-bottom: 5px; }
+        .info-content p { font-size: 15px; color: #ccc; line-height: 1.5; margin-bottom: 10px; }
+        .info-content ul { margin-left: 20px; margin-bottom: 10px; color: #ccc; }
+        .info-content li { margin-bottom: 5px; }
+        .info-icon { font-size: 20px; width: 30px; display: inline-block; text-align: center; }
+
+        #shopContent { width: 90%; max-height: 450px; overflow-y: auto; padding-right: 10px; }
+        #shopContent::-webkit-scrollbar { width: 8px; }
+        #shopContent::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        #shopContent::-webkit-scrollbar-thumb { background: #00adb5; border-radius: 4px; }
+        .shop-section-title { width: 100%; text-align: left; font-size: 20px; color: #00adb5; margin: 20px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .shop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 10px; }
+        .shop-item { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); padding: 10px; border-radius: 10px; text-align: center; width: 130px; transition: 0.2s; display: flex; flex-direction: column; align-items: center; }
+        .shop-item:hover { transform: scale(1.05); border-color: #fff; }
+        .shop-item.glow-card { border-color: #d300ff; box-shadow: 0 0 15px rgba(211, 0, 255, 0.3) inset; }
+        .item-preview { width: 40px; height: 40px; margin-bottom: 10px; border-radius: 5px; flex-shrink: 0; background-position: center; background-size: cover; pointer-events: none;}
+        .acc-emoji { font-size: 30px; line-height: 40px; pointer-events: none;}
+        .item-price { font-size: 14px; color: #ffd700; margin-bottom: 5px; pointer-events: none;}
+        .item-btn { width: 100%; padding: 5px; font-size: 14px; cursor: pointer; border-radius: 4px; border: none; font-weight: bold;}
+        .btn-buy { background: #333; color: white; border: 1px solid #555; }
+        .btn-buy:hover { background: #eee; color: black; }
+        .btn-equip { background: #00adb5; color: black; }
+        .btn-equipped { background: #2ecc71; color: white; cursor: default; border-color: transparent;}
+        .btn-locked { background: #222; color: #555; cursor: not-allowed; }
+
+        .settings-container {
+            background: rgba(0,0,0,0.7); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);
+            width: 400px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;
+        }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; color: #ccc; font-size: 18px;}
+        .toggle-btn { padding: 5px 15px; font-size: 16px; border: 1px solid #555; width: 120px; cursor: pointer; }
+        .toggle-on { background-color: rgba(46, 204, 113, 0.8); color: black; border-color: #2ecc71; }
+        .toggle-off { background-color: rgba(231, 76, 60, 0.8); color: white; border-color: #e74c3c; }
+        input[type=range] { width: 150px; cursor: pointer; accent-color: #00adb5; }
+
+        .data-btn { font-size: 14px; padding: 8px 15px; width: 100%; margin-top: 5px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); }
+        .btn-save { background: rgba(41, 128, 185, 0.6); color: white; }
+        .btn-load { background: rgba(39, 174, 96, 0.6); color: white; }
+        .btn-reset { background: rgba(192, 57, 43, 0.6); color: white; border-color: #e74c3c; }
+        .btn-reset:hover { background: #c0392b; }
+        
+        .sub-btn { padding: 10px 30px; font-size: 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #ddd; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .sub-btn:hover { background: #fff; color: #000; }
+
+        .coin-display { font-size: 24px; color: #ffd700; margin-bottom: 20px; background: rgba(0,0,0,0.6); padding: 10px 25px; border-radius: 30px; border: 1px solid rgba(255, 215, 0, 0.3); }
+        
+        #startAudioOverlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.5s; }
+        #startAudioOverlay.hidden { opacity: 0; pointer-events: none; }
+        #fileInput { display: none; }
+        #versionLabel { position: absolute; bottom: 20px; left: 20px; color: rgba(255,255,255,0.3); font-size: 12px; font-family: monospace; pointer-events: none; z-index: 30; }
+
+        .btn-restart {
+            background: #2ecc71; border-color: #27ae60; color: white; margin-right: 15px;
+        }
+        .btn-restart:hover { background: #27ae60; color: black; box-shadow: 0 0 15px #2ecc71; }
+
+        /* --- NEW RECORD ANIMATION --- */
+        #newRecordMsg {
+            display: none;
+            font-size: 40px;
+            color: #ffd700;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+            animation: pulseRecord 1s infinite alternate;
+            text-shadow: 0 0 20px #ffd700, 2px 2px 0px black;
+        }
+        @keyframes pulseRecord {
+            from { transform: scale(1); text-shadow: 0 0 20px #ffd700; }
+            to { transform: scale(1.1); text-shadow: 0 0 40px #ffd700, 0 0 10px white; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="topUIBar" class="hidden">
+        <button id="btnMobilePause" onclick="togglePause()">⏸️</button>
+        <div class="ui-box">Рівень: <span id="levelDisplay" style="color: #00adb5; margin-left: 10px;">0</span></div>
+        <div class="ui-box">Очки: <span id="scoreDisplay" style="color: #f9ed69; margin-left: 10px;">0</span><span class="run-coins">(💰<span id="runCoinsDisplay">0</span>)</span></div>
+        <div class="ui-box">Життя: <span id="livesDisplay" style="color: #e94560; margin-left: 10px;">❤️❤️❤️</span></div>
+        <div class="ui-box">Складність: <span id="gameDiffDisplay" style="color: #ff9f43; margin-left: 10px; font-size: 16px;">Норм</span></div>
+    </div>
+
+    <div id="glowContainer">
+        <div id="gameWrapper">
+            <div id="hitOverlay"></div>
+            <div id="comboOverlay"></div>
+            <div id="freezeOverlay"></div> 
+            <div id="startAudioOverlay" onclick="initAudioContext()">
+                <h2 style="color: #66fcf1; text-align: center; font-size: 40px;">КЛІКНИ ТУТ, ЩОБ АКТИВУВАТИ ГРУ ТА УВІМКНУТИ ЗВУК</h2>
+                <p style="color: #ffd700; font-size: 20px; margin-top: 10px; font-weight: bold;">⚠️ УВАГА: ГРА МІСТИТЬ ШВИДКІ РУХЛИВІ ОБ'ЄКТИ!</p>
+                <p style="color: #ccc; font-size: 14px; margin-top: 5px;">Рекомендовано натиснути F11 (Повний екран)</p>
+            </div>
+
+            <div id="levelUpMessage" class="center-msg">НОВИЙ РІВЕНЬ!</div>
+            <div id="deathMessage" class="center-msg">ГАПЛИК!</div>
+            <div id="unlockMessage" class="center-msg">ХАРДКОР ВІДКРИТО!</div>
+            <div id="freezeMessage" class="center-msg">ЗАМОРОЖЕНО!</div>
+            
+            <div id="mainMenu" class="scene-overlay visible">
+                <div id="menuContainer">
+                    <h1>Збирач Зірок</h1>
+                    <div class="stats-bar">
+                        <span class="stat-text" id="highScoreDisplay">🏆 Абсолютний Рекорд: 0</span>
+                        <span style="margin: 0 15px; color: #555;">|</span>
+                        <span class="stat-text">💰 <span id="menuCoins" class="stat-val">0</span></span>
+                    </div>
+                    
+                    <div class="game-setup-area">
+                        <div class="setup-col">
+                            <div class="col-title">Режим Гри</div>
+                            <div class="cards-row-modes">
+                                <div class="select-card active" onclick="selectGameMode('standard')" id="mode-standard">
+                                    <div class="card-icon">⭐</div>
+                                    <div class="card-name">Стандарт</div>
+                                </div>
+                                <div class="select-card" onclick="selectGameMode('catch')" id="mode-catch">
+                                    <div class="card-icon">✋</div>
+                                    <div class="card-name">Не впусти</div>
+                                </div>
+                                <div class="select-card" onclick="selectGameMode('dodge')" id="mode-dodge">
+                                    <div class="card-icon">🏃</div>
+                                    <div class="card-name">Ухилянт</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setup-col">
+                            <div class="col-title">Складність</div>
+                            <div class="grid-2x2">
+                                <div class="diff-card" onclick="selectDifficulty('easy')" id="diff-easy">
+                                    <div class="diff-emoji">😊</div><div class="diff-name">Легко</div>
+                                    <div class="diff-score" id="score-diff-easy">0</div>
+                                </div>
+                                <div class="diff-card active" onclick="selectDifficulty('normal')" id="diff-normal">
+                                    <div class="diff-emoji">🙃</div><div class="diff-name">Нормально</div>
+                                    <div class="diff-score" id="score-diff-normal">0</div>
+                                </div>
+                                <div class="diff-card" onclick="selectDifficulty('hard')" id="diff-hard">
+                                    <div class="diff-emoji">😡</div><div class="diff-name">Складно</div>
+                                    <div class="diff-score" id="score-diff-hard">0</div>
+                                </div>
+                                <div class="diff-card hardcore locked" onclick="selectDifficulty('hardcore')" id="diff-hardcore">
+                                    <div class="diff-emoji">💀</div><div class="diff-name">Хардкор</div>
+                                    <div class="diff-score" id="score-diff-hardcore">0</div>
+                                    <div class="lock-icon" id="hardcoreLock">🔒<div class="lock-desc">3000 на<br>Складному</div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-start" onclick="startGame()">ГРАТИ</button>
+                    
+                    <div class="bottom-actions" style="margin-top: 15px;">
+                        <button class="action-btn" onclick="openShop()">🛒 МАГАЗИН</button>
+                        <button class="setting-btn" onclick="openSettings()">⚙️ НАЛАШТУВАННЯ</button>
+                    </div>
+                </div>
+                
+                <button id="btnInfo" onclick="openInfo()">ℹ️</button>
+                <div id="versionLabel">ver. 0.7.1 NEW ICE RECORD!</div>
+            </div>
+
+            <div id="infoMenu" class="scene-overlay">
+                <div class="info-content">
+                    <h2 style="text-align: center; color: #00adb5; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 173, 181, 0.5);">Енциклопедія Гри</h2>
+                    
+                    <p style="text-align: center; margin-bottom: 25px; color: #ddd;">
+                        Керуйте <b>Неоновим Кубом</b> за допомогою <span style="color: #ffd700; font-weight: bold;">МИШКИ</span>, <span style="color: #ffd700; font-weight: bold;">СТРІЛОК</span> або <span style="color: #ffd700; font-weight: bold;">ПАЛЬЦЯ</span>.
+                    </p>
+
+                    <h3 style="border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; color: #f9ed69;">📦 Предмети та Бонуси</h3>
+                    <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px;">⭐</span> 
+                            <div><b style="color: #f9ed69;">Золота Зірка:</b><br>Звичайна зірка. Дає +10 очок.</div>
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px;">💥</span> 
+                            <div><b style="color: #ff4d4d;">Метеорит:</b><br>Небезпека! Забирає 1 життя при зіткненні.</div>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px;">⚫</span> 
+                            <div><b style="color: #888;">Метеорит Смерті:</b><br>Величезний темний метеорит. З'являється рідко, проте миттєво забирає всі життя!</div>
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px;">🟩</span> 
+                            <div><b style="color: #2ecc71;">Аптечка:</b><br>Рідкісний предмет. Відновлює 1 втрачене серце.</div>
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px;">🌟</span> 
+                            <div><b style="color: #d300ff;">Епічна Зірка:</b><br>Дуже швидка! Дає +100 очок та значно посилює комбо.</div>
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px; text-shadow: 0 0 10px #00f7ff;">❄️</span> 
+                            <div><b style="color: #00f7ff;">Кріо-Сфера (Заморожувач):</b><br>Сповільнює ваш рух у 3 рази на 3 секунди для ускладненого маневрування.</div>
+                        </li>
+                        <li style="margin-bottom: 12px; display: flex; align-items: center;">
+                            <span class="info-icon" style="font-size: 24px; margin-right: 10px; text-shadow: 0 0 10px #f9ed69;">💰</span> 
+                            <div><b style="color: #f9ed69;">Монети:</b><br>Основна валюта гри. Дозволяє придбати аксесуари для куба, або ж покращити вигляд гри.</div>
+                        </li>
+                    </ul>
+
+                    <h3 style="border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-top: 25px; color: #00adb5;">🎮 Режими Гри</h3>
+                    <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                        <li style="margin-bottom: 15px;">
+                            <b style="font-size: 16px;">1. ⭐ Стандарт</b>
+                            <p style="margin: 2px 0 0 0; font-size: 13px; color: #aaa;">Класичний режим. Збирайте зірки, ухиляйтесь від метеоритів. Пропускати зірки — безпечно.</p>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <b style="font-size: 16px;">2. ✋ Не впусти</b>
+                            <p style="margin: 2px 0 0 0; font-size: 13px; color: #aaa;">Режим для професіоналів. Кожна пропущена повз вас зірка розбивається і забирає життя!</p>
+                        </li>
+                        <li style="margin-bottom: 15px;">
+                            <b style="font-size: 16px;">3. 🏃 Ухилянт</b>
+                            <p style="margin: 2px 0 0 0; font-size: 13px; color: #aaa;">Зірок немає, тільки шквал метеоритів, аптечки та заморозки. Очки нараховуються автоматично щосекунди.</p>
+                        </li>
+                    </ul>
+
+                    <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; font-family: monospace; color: #666; font-size: 11px; line-height: 1.6;">
+                        <p style="margin: 0;">⚠️ СТАТУС ПРОЕКТУ: <b>OPEN BETA</b></p>
+                        <p style="margin: 0;">💻 РОЗРОБНИК: <span style="color: #ddd;">ГАЙДУК АРТЕМ</span></p>
+                        <p style="margin: 0;">🧠 З ДОПОМОГОЮ: <span style="color: #00adb5;">GEMINI PRO 3</span></p>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="sub-btn" onclick="closeInfo()">ЗРОЗУМІЛО</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pauseMenu" class="scene-overlay">
+                <h1 style="font-size: 80px; margin-bottom: 10px;">ПАУЗА</h1>
+                <div class="settings-container" style="width: 350px; margin-bottom: 20px; background: rgba(0,0,0,0.5);">
+                    <div class="setting-row">
+                        <span>🎵 Музика:</span>
+                        <div style="display: flex; align-items: center;">
+                            <input type="range" id="volMusicPause" min="0" max="1" step="0.05" oninput="updateVolume('music', this.value)">
+                            <button id="btnMuteMusicPause" class="mute-btn" onclick="toggleMute('music')">🔊</button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <span>🔊 Ефекти:</span>
+                        <div style="display: flex; align-items: center;">
+                            <input type="range" id="volSfxPause" min="0" max="1" step="0.05" oninput="updateVolume('sfx', this.value)">
+                            <button id="btnMuteSfxPause" class="mute-btn" onclick="toggleMute('sfx')">🔊</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-start" onclick="togglePause()">ПРОДОВЖИТИ</button>
+                <button class="sub-btn" style="margin-top: 20px;" onclick="confirmExitToMenu()">ВИЙТИ В МЕНЮ</button>
+            </div>
+
+            <div id="settingsMenu" class="scene-overlay">
+                <h1>Налаштування</h1>
+                <div class="settings-container">
+                    <div class="setting-row">
+                        <span>🎵 Музика:</span>
+                        <div style="display: flex; align-items: center;">
+                            <input type="range" id="volMusic" min="0" max="1" step="0.05" oninput="updateVolume('music', this.value)">
+                            <button id="btnMuteMusic" class="mute-btn" onclick="toggleMute('music')">🔊</button>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <span>🔊 Ефекти:</span>
+                        <div style="display: flex; align-items: center;">
+                            <input type="range" id="volSfx" min="0" max="1" step="0.05" oninput="updateVolume('sfx', this.value)">
+                            <button id="btnMuteSfx" class="mute-btn" onclick="toggleMute('sfx')">🔊</button>
+                        </div>
+                    </div>
+                    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.2);">
+                    
+                    <div class="setting-row">
+                        <span>👆 Сенсор:</span>
+                        <button id="btnTouchToggle" class="toggle-btn" onclick="toggleTouchSetting()">Вимк</button>
+                    </div>
+                    <div class="setting-row">
+                        <span>🔍 Масштаб:</span>
+                        <button id="btnMobileToggle" class="toggle-btn" onclick="toggleMobileSetting()">Вимк</button>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <span>🔒 Захоплення:</span>
+                        <button id="btnLockToggle" class="toggle-btn" onclick="toggleLockSetting()">Вимк</button>
+                    </div>
+
+                    <hr style="width: 100%; border: 0; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="data-btn btn-save" onclick="exportSave()">⬇️ Зберегти</button>
+                        <button class="data-btn btn-load" onclick="document.getElementById('fileInput').click()">⬆️ Завантажити</button>
+                        <input type="file" id="fileInput" accept=".json" onchange="importSave(this)">
+                    </div>
+                    <button class="data-btn btn-reset" onclick="resetProgress()">⚠️ СКИНУТИ ПРОГРЕС</button>
+                </div>
+                <button class="sub-btn" onclick="closeSettings()">ЗБЕРЕГТИ І ВИЙТИ</button>
+            </div>
+
+            <div id="shopMenu" class="scene-overlay">
+                <h1>Магазин</h1>
+                <div class="coin-display">💰 Баланс: <span id="shopCoins">0</span></div>
+                <div id="shopContent">
+                    <div class="shop-section-title">Скіни (Гравці)</div>
+                    <div id="shopGridSkins" class="shop-grid"></div>
+
+                    <div class="shop-section-title">Аксесуари</div>
+                    <div id="shopGridAcc" class="shop-grid"></div>
+                    
+                    <div class="shop-section-title">Світіння (Glow)</div>
+                    <div id="shopGridGlows" class="shop-grid"></div>
+                    
+                    <div class="shop-section-title">Фони (Backgrounds)</div>
+                    <div id="shopGridBgs" class="shop-grid"></div>
+                </div>
+                <button class="sub-btn" style="margin-top: 15px;" onclick="closeShop()">НАЗАД В МЕНЮ</button>
+            </div>
+
+            <div id="gameOverScreen" class="scene-overlay">
+                <h2 style="color: #ff0000; font-size: 50px; text-shadow: 0 0 20px red; margin-bottom: 5px;">ГРУ ЗАКІНЧЕНО</h2>
+                
+                <div id="newRecordMsg">🏆 НОВИЙ РЕКОРД! 🏆</div>
+
+                <p id="finalScore" style="font-size: 24px; color: white;">Рахунок: 0</p>
+                <p id="finalTime" style="font-size: 20px; color: #00adb5; margin-bottom: 10px;">Час: 0:00</p>
+                <p id="earnedCoinsText" style="font-size: 20px; color: #ffd700; margin-bottom: 30px;">+0 Монет</p>
+                <div style="display: flex;">
+                    <button class="btn-start btn-restart" onclick="quickRestart()">🔄 ЗНОВУ</button>
+                    <button class="main-btn" onclick="showMainMenu()">В Меню</button>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas" width="900" height="600"></canvas>
+        </div> 
+    </div>
+
+    <script>
+        // --- ДАНІ ---
+        let userCoins = parseInt(localStorage.getItem('coins')) || 0;
+        
+        // --- НОВА СИСТЕМА РЕКОРДІВ (v2) ---
+        // Структура: allScores[mode][difficulty]
+        let allScores = JSON.parse(localStorage.getItem('detailedScores')) || {
+            standard: { easy: 0, normal: 0, hard: 0, hardcore: 0 },
+            catch: { easy: 0, normal: 0, hard: 0, hardcore: 0 },
+            dodge: { easy: 0, normal: 0, hard: 0, hardcore: 0 }
+        };
+
+        // Migration from old system (simple highScores) is skipped to ensure clean stats for new difficulty-based tracking.
+        // If coin data exists, it is preserved.
+        
+        let unlockedSkins = JSON.parse(localStorage.getItem('skins')) || ['default'];
+        let currentSkinId = localStorage.getItem('currentSkin') || 'default';
+        
+        let unlockedGlows = JSON.parse(localStorage.getItem('glows')) || ['none'];
+        let currentGlowId = localStorage.getItem('currentGlow') || 'none';
+        
+        let unlockedBgs = JSON.parse(localStorage.getItem('backgrounds')) || ['default'];
+        let currentBgId = localStorage.getItem('currentBg') || 'default';
+
+        let unlockedAcc = JSON.parse(localStorage.getItem('accessories')) || ['none'];
+        let currentAccId = localStorage.getItem('currentAcc') || 'none';
+
+        let isHardcoreUnlocked = localStorage.getItem('hardcoreUnlocked') === 'true';
+        let selectedGameMode = localStorage.getItem('gameMode') || 'standard';
+
+        let settingTouchControl = localStorage.getItem('touchControl') === 'true';
+        let settingPointerLock = localStorage.getItem('pointerLock') === 'true';
+        let settingMobileControl = localStorage.getItem('mobileControl') === 'true'; 
+
+        let savedVolMusic = parseFloat(localStorage.getItem('volMusic'));
+        let savedVolSfx = parseFloat(localStorage.getItem('volSfx'));
+        if(isNaN(savedVolMusic)) savedVolMusic = 0.5;
+        if(isNaN(savedVolSfx)) savedVolSfx = 0.5;
+        let isMusicMuted = localStorage.getItem('isMusicMuted') === 'true'; 
+        let isSfxMuted = localStorage.getItem('isSfxMuted') === 'true'; 
+
+        let isInvulnerable = false;
+        let isFrozen = false; 
+        let isRecovering = false; // NEW FLAG FOR SMOOTH RECOVERY
+        let recoveryStartTime = 0; // NEW: Track when recovery started
+        let freezeTimeout = null;
+        let lastHeartSpawnTime = 0; 
+        let lastDamageTime = 0; 
+        let isDying = false; 
+        
+        let spawnTimeout = null;
+        let animationFrameId;
+        let lastTime = 0;
+        let lastScoreTime = 0; 
+        let gameStartTime = 0; 
+        let isPaused = false;
+        let isProcessingDeath = false; 
+        
+        let mouseTargetX = 425;
+        let wanderTarget = 425; 
+        let botCurrentX = 425; 
+        
+        let comboIntensity = 0;
+        const comboOverlay = document.getElementById('comboOverlay');
+        const freezeOverlay = document.getElementById('freezeOverlay');
+        const hitOverlay = document.getElementById('hitOverlay'); 
+        
+        let defaultGlowColor = '#505050';
+
+        // --- ЗБЕРЕЖЕННЯ ---
+        function resetProgress() {
+            if (confirm("Ти впевнений? Весь прогрес буде видалено!")) {
+                localStorage.clear(); location.reload();
+            }
+        }
+        function exportSave() {
+            const saveData = { 
+                coins: userCoins, 
+                detailedScores: allScores, // New structure
+                skins: unlockedSkins, currentSkin: currentSkinId, 
+                glows: unlockedGlows, currentGlow: currentGlowId,
+                backgrounds: unlockedBgs, currentBg: currentBgId,
+                accessories: unlockedAcc, currentAcc: currentAccId, 
+                hardcoreUnlocked: isHardcoreUnlocked, gameMode: selectedGameMode,
+                settings: { volMusic, volSfx, touchControl: settingTouchControl, pointerLock: settingPointerLock, mobileControl: settingMobileControl, isMusicMuted, isSfxMuted } 
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(saveData));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "neon_hunter_save.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+        function importSave(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.coins !== undefined) localStorage.setItem('coins', data.coins);
+                    
+                    if (data.detailedScores) localStorage.setItem('detailedScores', JSON.stringify(data.detailedScores));
+                    else if (data.highScores) {
+                        // Legacy import attempt (basic)
+                        // Just ignores old scores to prevent data corruption, or resets to 0
+                        localStorage.removeItem('detailedScores');
+                    }
+
+                    if (data.skins) localStorage.setItem('skins', JSON.stringify(data.skins));
+                    if (data.currentSkin) localStorage.setItem('currentSkin', data.currentSkin);
+                    if (data.glows) localStorage.setItem('glows', JSON.stringify(data.glows));
+                    if (data.currentGlow) localStorage.setItem('currentGlow', data.currentGlow);
+                    if (data.backgrounds) localStorage.setItem('backgrounds', JSON.stringify(data.backgrounds));
+                    if (data.currentBg) localStorage.setItem('currentBg', data.currentBg);
+                    if (data.accessories) localStorage.setItem('accessories', JSON.stringify(data.accessories));
+                    if (data.currentAcc) localStorage.setItem('currentAcc', data.currentAcc);
+                    if (data.gameMode) localStorage.setItem('gameMode', data.gameMode);
+                    
+                    if (data.hardcoreUnlocked !== undefined) localStorage.setItem('hardcoreUnlocked', data.hardcoreUnlocked);
+                    if (data.settings) {
+                        localStorage.setItem('volMusic', data.settings.volMusic);
+                        localStorage.setItem('volSfx', data.settings.volSfx);
+                        if(data.settings.touchControl !== undefined) localStorage.setItem('touchControl', data.settings.touchControl);
+                        localStorage.setItem('pointerLock', data.settings.pointerLock);
+                        if (data.settings.mobileControl !== undefined) localStorage.setItem('mobileControl', data.settings.mobileControl);
+                        if (data.settings.isMusicMuted !== undefined) localStorage.setItem('isMusicMuted', data.settings.isMusicMuted);
+                        if (data.settings.isSfxMuted !== undefined) localStorage.setItem('isSfxMuted', data.settings.isSfxMuted);
+                    }
+                    alert("Файл завантажено! Оновлення..."); location.reload();
+                } catch (err) { alert("Помилка!"); }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- БАЗИ ДАНИХ ---
+        const skinsDB = [
+            { id: 'default', name: 'Неон', price: 0, color: '#00adb5' },
+            { id: 'red', name: 'Лють', price: 1, color: '#ff4d4d' },
+            { id: 'gold', name: 'Магнат', price: 5, color: '#ffd700' },
+            { id: 'toxic', name: 'Токсик', price: 10, color: '#39ff14' },
+            { id: 'purple', name: 'Ефір', price: 15, color: '#9b59b6' },
+            { id: 'white', name: 'Привид', price: 25, color: '#ffffff' }
+        ];
+        const glowsDB = [
+            { id: 'none', name: 'Вимкнути', price: 0, color: 'transparent' },
+            { id: 'cyan', name: 'Ціан', price: 50, color: '#00adb5' },
+            { id: 'red', name: 'Червоний', price: 50, color: '#ff0000' },
+            { id: 'gold', name: 'Золото', price: 50, color: '#ffd700' },
+            { id: 'green', name: 'Зелений', price: 50, color: '#00ff00' },
+            { id: 'purple', name: 'Фіолетовий', price: 50, color: '#d300ff' },
+            { id: 'blue', name: 'Синій', price: 50, color: '#0000ff' },
+            { id: 'white', name: 'Білий', price: 50, color: '#ffffff' },
+            { id: 'pink', name: 'Рожевий', price: 50, color: '#ff00ff' }
+        ];
+        
+        const backgroundsDB = [
+            { id: 'default', name: 'Стандарт', type: 'gradient', value: 'radial-gradient(circle at center, #333333 0%, #111111 100%)', price: 0, glowColor: '#505050' },
+            { id: 'deep_dark', name: 'Безодня', type: 'gradient', value: 'radial-gradient(circle at center, #222222 0%, #000000 100%)', price: 25, glowColor: '#1a1a1a' },
+            { id: 'mars_dark', name: 'Марс', type: 'gradient', value: 'radial-gradient(circle at center, #4a0e0e 0%, #1a0505 100%)', price: 25, glowColor: '#5e1b1b' },
+            { id: 'emerald', name: 'Смарагд', type: 'gradient', value: 'radial-gradient(circle at center, #0e4a1a 0%, #051a05 100%)', price: 25, glowColor: '#1b5e2b' },
+            { id: 'bg_space', name: 'Космос', type: 'image', value: 'url("bg_space.jpg")', price: 75, glowColor: '#050520' },
+            { id: 'bg_nebula', name: 'Туманність', type: 'image', value: 'url("bg_nebula.jpg")', price: 75, glowColor: '#3498db' },
+            { id: 'bg_grid', name: 'Кібер', type: 'image', value: 'url("bg_grid.jpg")', price: 75, glowColor: '#2a2a2a' }
+        ];
+        const accDB = [
+            { id: 'none', name: 'Нічого', price: 0, icon: '🚫' },
+            { id: 'cat_ears', name: 'Вушка', price: 50, icon: '🐱' },
+            { id: 'devil_horns', name: 'Ріжки', price: 50, icon: '😈' },
+            { id: 'halo', name: 'Німб', price: 50, icon: '😇' },
+            { id: 'cyclops', name: 'Циклоп', price: 50, icon: '👁️' },
+            { id: 'red_eyes', name: 'Злі очі', price: 50, icon: '🔴' },
+            { id: 'glasses', name: 'Окуляри', price: 50, icon: '🕶️' }
+        ];
+
+        // --- АУДІО (PLAYLIST) ---
+        const sfxFiles = {
+            menu: "menu.mp3", shop: "shop.mp3", loose: "loose.mp3",
+            pickup: "coin.mp3", hit: "hit.mp3", levelup: "levelup.mp3", heal: "heal.mp3", bonus: "bonus.mp3", freeze: "freeze.mp3",
+            click: "click.mp3", buy: "buy.mp3", hover: "hover.mp3",
+            death_rock: "death_rock.mp3", gameover: "gameover.mp3",
+            pause: "pause.mp3"
+        };
+        const musicFiles = [
+            "music_1.mp3", "music_2.mp3", "music_3.mp3", "music_4.mp3", "music_5.mp3",
+            "music_6.mp3", "music_7.mp3", "music_8.mp3", "music_9.mp3", "music_10.mp3"
+        ];
+        
+        const soundPools = {};
+        const POOL_SIZE = 5; 
+        const sounds = {}; 
+        let currentMusicIndex = 0;
+        
+        let volMusic = savedVolMusic, volSfx = savedVolSfx;
+        let fadeTimeout, fadeInterval, audioInitialized = false;
+        let lastPlayed = {};
+
+        // Track active fades to clear them if needed
+        const activeFades = new Map();
+
+        function loadSounds() {
+            // SFX
+            for (let key in sfxFiles) {
+                if (key !== 'menu' && key !== 'shop' && key !== 'gameover' && key !== 'pause') {
+                    soundPools[key] = [];
+                    for(let i=0; i<POOL_SIZE; i++) {
+                        let a = new Audio(sfxFiles[key]);
+                        a.preload = 'auto'; 
+                        soundPools[key].push(a);
+                    }
+                }
+                sounds[key] = new Audio(sfxFiles[key]);
+                if (key === 'menu' || key === 'shop' || key === 'gameover' || key === 'pause') sounds[key].loop = true;
+            }
+            // MUSIC
+            musicFiles.forEach((file, index) => {
+                let key = 'track_' + index;
+                sounds[key] = new Audio(file);
+                // ВИПРАВЛЕННЯ: Використовуємо onended замість addEventListener
+                sounds[key].onended = function() {
+                    if (currentMusicIndex === index && isGameRunning) {
+                        playNextTrack();
+                    }
+                };
+            });
+
+            updateVolume('music', volMusic); updateVolume('sfx', volSfx);
+            document.getElementById('volMusic').value = volMusic;
+            document.getElementById('volSfx').value = volSfx;
+            if(document.getElementById('volMusicPause')) document.getElementById('volMusicPause').value = volMusic;
+            if(document.getElementById('volSfxPause')) document.getElementById('volSfxPause').value = volSfx;
+            updateMuteButtons();
+        }
+        loadSounds();
+
+        // --- AUDIO FADE SYSTEM ---
+        function fadeAudio(audio, targetVol, duration = 1000, onComplete = null) {
+            if (!audio) return;
+            
+            // If already fading this specific audio, clear interval
+            if (activeFades.has(audio)) {
+                clearInterval(activeFades.get(audio));
+                activeFades.delete(audio);
+            }
+
+            const startVol = audio.volume;
+            const diff = targetVol - startVol;
+            const steps = 20; 
+            const intervalTime = duration / steps;
+            const stepVol = diff / steps;
+            
+            let currentStep = 0;
+
+            const interval = setInterval(() => {
+                currentStep++;
+                let newVol = startVol + (stepVol * currentStep);
+                
+                // Clamp
+                if (newVol < 0) newVol = 0;
+                if (newVol > 1) newVol = 1;
+                
+                audio.volume = newVol;
+
+                if (currentStep >= steps) {
+                    clearInterval(interval);
+                    activeFades.delete(audio);
+                    audio.volume = targetVol; // Ensure exact target
+                    if (onComplete) onComplete();
+                }
+            }, intervalTime);
+
+            activeFades.set(audio, interval);
+        }
+
+        function playNextTrack() {
+            if (!isGameRunning) return;
+            let nextIndex = Math.floor(Math.random() * musicFiles.length);
+            // Optional: try to avoid immediate repeat if we have >1 songs
+            if(musicFiles.length > 1 && nextIndex === currentMusicIndex) {
+                 nextIndex = (nextIndex + 1) % musicFiles.length;
+            }
+            currentMusicIndex = nextIndex;
+            playMusicTrack(currentMusicIndex);
+        }
+
+        function playMusicTrack(index) {
+            if(isMusicMuted) return;
+            
+            // 1. Зупиняємо старі треки
+            for(let k in sounds) {
+                if (k.startsWith('track_') && !sounds[k].paused && k !== 'track_' + index) {
+                    // ВАЖЛИВО: Вимикаємо обробник, щоб старий трек не тригерив playNextTrack
+                    sounds[k].onended = null;
+                    
+                    let oldTrack = sounds[k];
+                    fadeAudio(oldTrack, 0, 500, () => { 
+                        oldTrack.pause(); 
+                        oldTrack.currentTime = 0; 
+                    });
+                }
+            }
+
+            // 2. Граємо новий
+            let key = 'track_' + index;
+            if(sounds[key]) {
+                sounds[key].onended = function() {
+                    playNextTrack();
+                };
+                
+                sounds[key].volume = 0; // Start at 0 for fade in
+                sounds[key].play().catch(e => console.log("Audio Play Error: ", e));
+                fadeAudio(sounds[key], volMusic, 500);
+            }
+        }
+
+        function initAudioContext() {
+            if (audioInitialized) return;
+            audioInitialized = true;
+            document.getElementById('startAudioOverlay').classList.add('hidden');
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                const ctx = new AudioContext();
+                ctx.resume();
+                const buffer = ctx.createBuffer(1, 1, 22050);
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            }
+            
+            // Start Menu Music Fade In
+            sounds['menu'].volume = 0;
+            sounds['menu'].play();
+            fadeAudio(sounds['menu'], volMusic, 1000);
+            
+            startDemoMode(); 
+        }
+
+        document.addEventListener('mouseover', (e) => {
+            if (settingMobileControl) return; 
+            const interactive = e.target.closest('button, .select-card, .diff-card, .shop-item');
+            if (interactive) {
+                const related = e.relatedTarget;
+                if (!related || !interactive.contains(related)) {
+                    playSound('hover');
+                }
+            }
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('.select-card') || e.target.closest('.diff-card') || e.target.closest('.shop-item') || e.target.closest('.data-btn') || e.target.closest('.toggle-btn') || e.target.closest('.sub-btn')) {
+                playSound('click');
+            }
+        });
+        
+        // Touch handler just to wake up AudioContext
+        document.addEventListener('touchstart', () => {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                const ctx = new AudioContext();
+                ctx.resume();
+            }
+        }, { passive: true });
+
+        function playSound(key) {
+            if (key === 'hover' && settingMobileControl) return; 
+            if (isDemoMode && key !== 'menu' && key !== 'shop' && key !== 'click' && key !== 'hover') return;
+            
+            let isMusicType = (key === 'loose' || key === 'menu' || key === 'shop' || key === 'gameover' || key === 'pause' || key.startsWith('track_'));
+            
+            // Mute Checks
+            if (isMusicType && isMusicMuted) return;
+            if (!isMusicType && isSfxMuted) return;
+
+            if ((!sounds[key] && !soundPools[key]) && key === 'click') key = 'pickup'; 
+            if ((!sounds[key] && !soundPools[key]) && key === 'hover') return; 
+            if ((!sounds[key] && !soundPools[key]) && key === 'death_rock') key = 'hit';
+
+            let hasSound = sounds[key] || (soundPools[key] && soundPools[key].length > 0);
+            
+            if (!hasSound) {
+                if (key === 'heal' || key === 'bonus' || key === 'freeze') key = 'pickup';
+                else if (key === 'buy') key = 'bonus';
+                else return;
+            }
+            
+            if (!isMusicType) {
+                const now = Date.now();
+                if (lastPlayed[key] && now - lastPlayed[key] < 50) return;
+                lastPlayed[key] = now;
+            }
+
+            let currentVol = isMusicType ? volMusic : volSfx;
+            if (currentVol <= 0) return;
+            
+            if (key === 'pickup' && arguments[0] === 'click') currentVol *= 0.3;
+            if (key === 'hover') currentVol *= 0.5;
+
+            try {
+                if (!isMusicType) {
+                    if (soundPools[key]) {
+                        let audio = soundPools[key].find(a => a.paused);
+                        if (!audio) audio = soundPools[key][0];
+                        audio.volume = currentVol;
+                        audio.currentTime = 0;
+                        audio.play().catch(e=>{});
+                    }
+                } else {
+                    if (key === 'gameover') {
+                         sounds[key].volume = 0;
+                         sounds[key].play().catch(e=>{});
+                         fadeAudio(sounds[key], volMusic, 1000);
+                    } else if (key === 'menu' || key === 'shop') {
+                         // Menu/Shop handled by logic
+                    } else {
+                         // Loose etc
+                         sounds[key].volume = currentVol;
+                         sounds[key].play().catch(e=>{});
+                    }
+                }
+            } catch (e) {}
+        }
+        
+        function updateVolume(type, value) {
+            value = parseFloat(value);
+            if (type === 'music') {
+                volMusic = value; localStorage.setItem('volMusic', value);
+                document.getElementById('volMusic').value = value;
+                if(document.getElementById('volMusicPause')) document.getElementById('volMusicPause').value = value;
+                
+                if(!isMusicMuted) {
+                    for(let k in sounds) {
+                        if (k === 'menu' || k === 'shop' || k === 'loose' || k === 'gameover' || k === 'pause' || k.startsWith('track_')) {
+                             // Only update volume if not currently fading
+                             if(!activeFades.has(sounds[k]) && !sounds[k].paused) {
+                                 sounds[k].volume = volMusic;
+                             }
+                        }
+                    }
+                }
+            } else { 
+                volSfx = value; localStorage.setItem('volSfx', value);
+                document.getElementById('volSfx').value = value;
+                if(document.getElementById('volSfxPause')) document.getElementById('volSfxPause').value = value;
+            }
+        }
+
+        function toggleMute(type) {
+            if (type === 'music') {
+                isMusicMuted = !isMusicMuted;
+                localStorage.setItem('isMusicMuted', isMusicMuted);
+                
+                if(isMusicMuted) {
+                    stopAllMusic();
+                } else {
+                    let trackToPlay = 'menu';
+                    if (isGameRunning) { playMusicTrack(currentMusicIndex); }
+                    else if(sounds[trackToPlay]) {
+                        sounds[trackToPlay].volume = 0;
+                        sounds[trackToPlay].play().catch(e=>{});
+                        fadeAudio(sounds[trackToPlay], volMusic, 500);
+                    }
+                }
+            } else if (type === 'sfx') {
+                isSfxMuted = !isSfxMuted;
+                localStorage.setItem('isSfxMuted', isSfxMuted);
+            }
+            updateMuteButtons();
+        }
+
+        function updateMuteButtons() {
+            const musicBtns = [document.getElementById('btnMuteMusic'), document.getElementById('btnMuteMusicPause')];
+            musicBtns.forEach(btn => {
+                if(!btn) return;
+                if (isMusicMuted) { btn.innerText = "🔇"; btn.classList.add('muted'); } 
+                else { btn.innerText = "🔊"; btn.classList.remove('muted'); }
+            });
+
+            const sfxBtns = [document.getElementById('btnMuteSfx'), document.getElementById('btnMuteSfxPause')];
+            sfxBtns.forEach(btn => {
+                if(!btn) return;
+                if (isSfxMuted) { btn.innerText = "🔇"; btn.classList.add('muted'); } 
+                else { btn.innerText = "🔊"; btn.classList.remove('muted'); }
+            });
+        }
+
+        function stopAllMusic(gameOnly = false) {
+            for(let k in sounds) {
+                if (k === 'menu' || k === 'shop' || k === 'loose' || k === 'gameover' || k === 'pause' || k.startsWith('track_')) {
+                    if (gameOnly && (k === 'menu' || k === 'shop' || k === 'gameover')) continue;
+                    
+                    // Clear onended to prevent chaining
+                    sounds[k].onended = null;
+                    sounds[k].pause();
+                    sounds[k].currentTime = 0; 
+                }
+            }
+            if(!gameOnly) { clearTimeout(fadeTimeout); clearInterval(fadeInterval); fadeInterval = null; }
+        }
+
+        // --- VISIBILITY HANDLER (Fix for Pile-up & Audio Mute) ---
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                // TAB HIDDEN: STOP EVERYTHING
+                if(!isMusicMuted) {
+                    for(let k in sounds) { 
+                        if(!sounds[k].paused) {
+                            sounds[k].pause();
+                            // Mark as "paused by visibility" to resume later if needed
+                            sounds[k].wasPlayingBeforeHide = true;
+                        } else {
+                            sounds[k].wasPlayingBeforeHide = false;
+                        }
+                    }
+                }
+                // Stop spawn timer completely
+                clearTimeout(spawnTimeout); 
+            } else {
+                // TAB RESTORED
+                lastTime = performance.now(); // RESET DELTA TIME
+                
+                // Resume Audio if it was playing
+                if(!isMusicMuted) {
+                    for(let k in sounds) {
+                        if(sounds[k].wasPlayingBeforeHide) {
+                            sounds[k].play().catch(()=>{});
+                            sounds[k].wasPlayingBeforeHide = false;
+                        }
+                    }
+                }
+
+                // Clean up stuck items to prevent instant death
+                items = items.filter(i => i.y < canvas.height && i.y > -500); 
+                // Or just clear all if in demo to be safe:
+                if (isDemoMode) items = [];
+
+                // Resume Spawn Logic if active
+                if ((isGameRunning && !isPaused && !isDying) || isDemoMode) {
+                    scheduleNextSpawn();
+                    requestAnimationFrame(update);
+                }
+            }
+        });
+
+        // --- ГРА ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const glowContainer = document.getElementById('glowContainer');
+        const gameWrapper = document.getElementById('gameWrapper');
+        
+        const mainMenu = document.getElementById('mainMenu');
+        const shopMenu = document.getElementById('shopMenu');
+        const settingsMenu = document.getElementById('settingsMenu');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const pauseMenu = document.getElementById('pauseMenu');
+        const infoMenu = document.getElementById('infoMenu');
+        
+        const menuCoinsEl = document.getElementById('menuCoins');
+        const shopCoinsEl = document.getElementById('shopCoins');
+        const uiLayer = document.getElementById('topUIBar');
+        
+        let score = 0;
+        let lives = 3;
+        let level = 0; 
+        let isGameRunning = false;
+        let isDemoMode = false;
+        let items = [];
+        let selectedDifficulty = 'normal';
+
+        const difficultySettings = {
+            easy:   { speed: 3, spawnRate: 1000, rockChance: 0.15 },
+            normal: { speed: 5.5, spawnRate: 750, rockChance: 0.25 },
+            hard:   { speed: 9, spawnRate: 450, rockChance: 0.5 },
+            hardcore: { speed: 12, spawnRate: 300, rockChance: 0.7 }
+        };
+
+        const player = { 
+            x: 425, y: 520, width: 50, height: 50, color: '#00adb5', speed: 8,
+            trail: [] 
+        };
+        
+        function updatePlayerAppearance() {
+            const skin = skinsDB.find(s => s.id === currentSkinId);
+            if (skin) player.color = skin.color;
+        }
+        updatePlayerAppearance(); 
+
+        function updateBackground() {
+            const bg = backgroundsDB.find(b => b.id === currentBgId);
+            if (bg) {
+                gameWrapper.style.background = bg.value;
+                gameWrapper.style.backgroundSize = 'cover';
+                gameWrapper.style.backgroundPosition = 'center';
+                
+                defaultGlowColor = bg.glowColor || '#505050'; 
+                
+                glowContainer.style.backgroundColor = defaultGlowColor;
+                glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+            }
+        }
+        updateBackground(); 
+
+        let rightPressed = false, leftPressed = false;
+        document.addEventListener("keydown", (e) => {
+            if (isDemoMode) return;
+            if (e.code === 'Escape') { togglePause(); return; }
+            if(e.key === "Right" || e.key === "ArrowRight" || e.key === "d") rightPressed = true;
+            if(e.key === "Left" || e.key === "ArrowLeft" || e.key === "a") leftPressed = true;
+        });
+        document.addEventListener("keyup", (e) => {
+            if (isDemoMode) return;
+            if(e.key === "Right" || e.key === "ArrowRight" || e.key === "d") rightPressed = false;
+            if(e.key === "Left" || e.key === "ArrowLeft" || e.key === "a") leftPressed = false;
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isGameRunning || isDemoMode || isPaused || settingTouchControl) return; // Ignore mouse if Touch Control ON
+            
+            if (document.pointerLockElement === canvas) {
+                mouseTargetX += e.movementX * 1.0;
+            } else {
+                const rect = canvas.getBoundingClientRect();
+                mouseTargetX = e.clientX - rect.left - player.width / 2;
+            }
+
+            if (mouseTargetX < 0) mouseTargetX = 0;
+            if (mouseTargetX > canvas.width - player.width) mouseTargetX = canvas.width - player.width;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isGameRunning || isDemoMode || isPaused || !settingTouchControl) return; // Ignore touch if Touch Control OFF
+            e.preventDefault(); 
+
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            // Scale doesn't affect raw touch logic if we use clientX relative to rect
+            let scaleFactor = settingMobileControl ? 0.5 : 1; 
+            const scaleX = (canvas.width / rect.width);
+            
+            let touchX = (touch.clientX - rect.left) * scaleX;
+            mouseTargetX = touchX - player.width / 2;
+
+            if (mouseTargetX < 0) mouseTargetX = 0;
+            if (mouseTargetX > canvas.width - player.width) mouseTargetX = canvas.width - player.width;
+        }, { passive: false });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement !== canvas && isGameRunning && !isPaused && !isDemoMode && !isDying) {
+                togglePause();
+            }
+        });
+
+        function togglePause() {
+            if (!isGameRunning || isDemoMode || isDying) return; 
+            isPaused = !isPaused;
+            
+            let gameTrack = sounds['track_' + currentMusicIndex];
+
+            if (isPaused) {
+                clearTimeout(spawnTimeout); 
+                if(freezeTimeout) { clearTimeout(freezeTimeout); freezeTimeout = null; isFrozen = false; isRecovering = false; freezeOverlay.style.opacity = 0; }
+                pauseMenu.classList.add('visible');
+                cancelAnimationFrame(animationFrameId);
+                if (document.pointerLockElement === canvas) document.exitPointerLock();
+                gameWrapper.style.cursor = 'default';
+
+                if(gameTrack && !gameTrack.paused) {
+                    fadeAudio(gameTrack, 0, 500, () => { gameTrack.pause(); }); 
+                }
+                
+                let pauseTrack = sounds['pause'];
+                if(pauseTrack && !isMusicMuted) {
+                    pauseTrack.currentTime = 0;
+                    pauseTrack.volume = 0;
+                    pauseTrack.play().catch(()=>{});
+                    fadeAudio(pauseTrack, volMusic, 500);
+                }
+
+            } else {
+                pauseMenu.classList.remove('visible');
+                lastTime = performance.now();
+                scheduleNextSpawn(); 
+                animationFrameId = requestAnimationFrame(update);
+                if (settingPointerLock) canvas.requestPointerLock();
+                else if (!settingTouchControl) gameWrapper.style.cursor = 'none';
+
+                let pauseTrack = sounds['pause'];
+                if(pauseTrack) {
+                    fadeAudio(pauseTrack, 0, 500, () => { pauseTrack.pause(); });
+                }
+
+                if(gameTrack && !isMusicMuted) {
+                    gameTrack.play().catch(()=>{}); 
+                    fadeAudio(gameTrack, volMusic, 500);
+                }
+            }
+        }
+
+        function confirmExitToMenu() {
+            if (isGameRunning && isPaused) {
+                if (confirm("УВАГА: Весь поточний прогрес (очки) буде втрачено. Вийти в меню?")) {
+                    showMainMenu();
+                }
+            } else {
+                showMainMenu();
+            }
+        }
+
+        function openInfo() { mainMenu.classList.remove('visible'); infoMenu.classList.add('visible'); stopDemoMode(); }
+        function closeInfo() { infoMenu.classList.remove('visible'); mainMenu.classList.add('visible'); startDemoMode(); }
+
+        function openSettings() { mainMenu.classList.remove('visible'); settingsMenu.classList.add('visible'); stopDemoMode(); updateSettingsUI(); }
+        function closeSettings() { settingsMenu.classList.remove('visible'); mainMenu.classList.add('visible'); startDemoMode(); }
+        
+        function toggleTouchSetting() { settingTouchControl = !settingTouchControl; localStorage.setItem('touchControl', settingTouchControl); updateSettingsUI(); }
+        function toggleLockSetting() { settingPointerLock = !settingPointerLock; localStorage.setItem('pointerLock', settingPointerLock); updateSettingsUI(); }
+        
+        function toggleMobileSetting() {
+            settingMobileControl = !settingMobileControl; 
+            localStorage.setItem('mobileControl', settingMobileControl); 
+            updateSettingsUI();
+            if(settingMobileControl) {
+                document.body.classList.add('mobile-zoomed'); // Zoom 50%
+            } else {
+                document.body.classList.remove('mobile-zoomed');
+            }
+        }
+
+        function updateSettingsUI() {
+            const btnTouch = document.getElementById('btnTouchToggle');
+            const btnLock = document.getElementById('btnLockToggle');
+            const btnMobile = document.getElementById('btnMobileToggle');
+
+            if (settingTouchControl) { btnTouch.innerText = "Увімк"; btnTouch.className = "toggle-btn toggle-on"; }
+            else { btnTouch.innerText = "Вимк"; btnTouch.className = "toggle-btn toggle-off"; }
+            
+            if (settingPointerLock) { btnLock.innerText = "Увімк"; btnLock.className = "toggle-btn toggle-on"; }
+            else { btnLock.innerText = "Вимк"; btnLock.className = "toggle-btn toggle-off"; }
+
+            if (settingMobileControl) { 
+                btnMobile.innerText = "Увімк"; btnMobile.className = "toggle-btn toggle-on"; 
+                document.body.classList.add('mobile-active'); 
+                document.body.classList.add('mobile-zoomed');
+            }
+            else { 
+                btnMobile.innerText = "Вимк"; btnMobile.className = "toggle-btn toggle-off"; 
+                document.body.classList.remove('mobile-active');
+                document.body.classList.remove('mobile-zoomed');
+            }
+        }
+
+        function selectGameMode(mode) {
+            selectedGameMode = mode;
+            localStorage.setItem('gameMode', selectedGameMode);
+            document.getElementById('mode-standard').className = "select-card";
+            document.getElementById('mode-catch').className = "select-card";
+            document.getElementById('mode-dodge').className = "select-card";
+            document.getElementById('mode-' + mode).classList.add('active');
+            updateMenuUI(); 
+        }
+        
+        function updateModeCardsUI() {
+            // Deprecated/Integrated into updateMenuUI
+        }
+
+        selectGameMode(selectedGameMode);
+
+        function openShop() { 
+            stopAllMusic(true);
+            let menuTrack = sounds['menu'];
+            if(menuTrack) fadeAudio(menuTrack, 0, 500, ()=> { menuTrack.pause(); });
+            
+            let shopTrack = sounds['shop'];
+            if(shopTrack && !isMusicMuted) {
+                shopTrack.volume = 0;
+                shopTrack.play();
+                fadeAudio(shopTrack, volMusic, 500);
+            }
+            
+            renderShop(); mainMenu.classList.remove('visible'); shopMenu.classList.add('visible'); stopDemoMode(); playSound('shop'); 
+        }
+        function closeShop() { 
+            let shopTrack = sounds['shop'];
+            if(shopTrack) fadeAudio(shopTrack, 0, 500, ()=> { shopTrack.pause(); });
+            
+            let menuTrack = sounds['menu'];
+            if(menuTrack && !isMusicMuted) {
+                menuTrack.volume = 0;
+                menuTrack.play();
+                fadeAudio(menuTrack, volMusic, 500);
+            }
+
+            shopMenu.classList.remove('visible'); mainMenu.classList.add('visible'); updateMenuUI(); playSound('menu'); startDemoMode(); 
+        }
+        
+        function updateMenuUI() { 
+            menuCoinsEl.innerText = userCoins; 
+            shopCoinsEl.innerText = userCoins;
+            
+            // 1. CALCULATE GLOBAL BEST (Across ALL modes and difficulties)
+            let globalBestScore = 0;
+            let globalBestDiff = '';
+            
+            // Loop through all modes
+            ['standard', 'catch', 'dodge'].forEach(m => {
+                // Loop through all difficulties
+                ['easy', 'normal', 'hard', 'hardcore'].forEach(d => {
+                    if (allScores[m] && allScores[m][d] > globalBestScore) {
+                        globalBestScore = allScores[m][d];
+                        globalBestDiff = d;
+                    }
+                });
+            });
+
+            let diffText = "";
+            if (globalBestDiff === 'easy') diffText = " (Легко)";
+            if (globalBestDiff === 'normal') diffText = " (Норм)";
+            if (globalBestDiff === 'hard') diffText = " (Складно)";
+            if (globalBestDiff === 'hardcore') diffText = " (Хардкор)";
+            if (globalBestScore === 0) diffText = "";
+
+            document.getElementById('highScoreDisplay').innerText = "🏆 Абсолютний Рекорд: " + globalBestScore + diffText;
+            
+            // 2. UPDATE DIFFICULTY CARDS (Based on SELECTED mode)
+            if (allScores[selectedGameMode]) {
+                document.getElementById('score-diff-easy').innerText = `(${allScores[selectedGameMode].easy})`;
+                document.getElementById('score-diff-normal').innerText = `(${allScores[selectedGameMode].normal})`;
+                document.getElementById('score-diff-hard').innerText = `(${allScores[selectedGameMode].hard})`;
+                document.getElementById('score-diff-hardcore').innerText = `(${allScores[selectedGameMode].hardcore})`;
+            }
+        }
+        updateMenuUI(); 
+
+        function buySkin(id, price) {
+            if (userCoins >= price) {
+                userCoins -= price; unlockedSkins.push(id);
+                localStorage.setItem('coins', userCoins); localStorage.setItem('skins', JSON.stringify(unlockedSkins));
+                playSound('buy'); renderShop(); updateMenuUI();
+            }
+        }
+        function equipSkin(id) {
+            currentSkinId = id; localStorage.setItem('currentSkin', currentSkinId);
+            updatePlayerAppearance(); playSound('pickup'); renderShop();
+        }
+        function buyGlow(id, price) {
+             if (userCoins >= price) {
+                userCoins -= price; unlockedGlows.push(id);
+                localStorage.setItem('coins', userCoins); localStorage.setItem('glows', JSON.stringify(unlockedGlows));
+                playSound('buy'); renderShop(); updateMenuUI();
+            }
+        }
+        function equipGlow(id) {
+            currentGlowId = id; localStorage.setItem('currentGlow', currentGlowId);
+            playSound('pickup'); renderShop();
+        }
+        function buyBg(id, price) {
+             if (userCoins >= price) {
+                userCoins -= price; unlockedBgs.push(id);
+                localStorage.setItem('coins', userCoins); localStorage.setItem('backgrounds', JSON.stringify(unlockedBgs));
+                playSound('buy'); renderShop(); updateMenuUI();
+            }
+        }
+        function equipBg(id) {
+            currentBgId = id; localStorage.setItem('currentBg', currentBgId);
+            updateBackground(); playSound('pickup'); renderShop();
+        }
+        function buyAcc(id, price) {
+            if (userCoins >= price) {
+                userCoins -= price; unlockedAcc.push(id);
+                localStorage.setItem('coins', userCoins); localStorage.setItem('accessories', JSON.stringify(unlockedAcc));
+                playSound('buy'); renderShop(); updateMenuUI();
+            }
+        }
+        function equipAcc(id) {
+            currentAccId = id; localStorage.setItem('currentAcc', currentAccId);
+            playSound('pickup'); renderShop();
+        }
+
+        function renderShop() {
+            const gridSkins = document.getElementById('shopGridSkins'); 
+            const gridGlows = document.getElementById('shopGridGlows');
+            const gridBgs = document.getElementById('shopGridBgs');
+            const gridAcc = document.getElementById('shopGridAcc');
+            gridSkins.innerHTML = ''; gridGlows.innerHTML = ''; gridBgs.innerHTML = ''; gridAcc.innerHTML = '';
+            shopCoinsEl.innerText = userCoins;
+            
+            skinsDB.forEach(skin => {
+                const card = document.createElement('div'); card.className = 'shop-item';
+                const isUnlocked = unlockedSkins.includes(skin.id); const isEquipped = currentSkinId === skin.id;
+                let btnHtml = isEquipped ? `<button class="item-btn btn-equipped">ВИБРАНО</button>` : (isUnlocked ? `<button class="item-btn btn-equip" onclick="equipSkin('${skin.id}')">ВИБРАТИ</button>` : (userCoins >= skin.price ? `<div class="item-price">${skin.price} 💰</div><button class="item-btn btn-buy" onclick="buySkin('${skin.id}', ${skin.price})">КУПИТИ</button>` : `<div class="item-price">${skin.price} 💰</div><button class="item-btn btn-locked">НЕМАЄ ГРОШЕЙ</button>`));
+                card.innerHTML = `<div class="item-preview" style="background-color: ${skin.color}"></div><div style="font-weight:bold; margin-bottom:5px;">${skin.name}</div>${btnHtml}`;
+                gridSkins.appendChild(card);
+            });
+            accDB.forEach(acc => {
+                const card = document.createElement('div'); card.className = 'shop-item';
+                const isUnlocked = unlockedAcc.includes(acc.id); const isEquipped = currentAccId === acc.id;
+                let btnHtml = isEquipped ? `<button class="item-btn btn-equipped">ВИБРАНО</button>` : (isUnlocked ? `<button class="item-btn btn-equip" onclick="equipAcc('${acc.id}')">ВИБРАТИ</button>` : (userCoins >= acc.price ? `<div class="item-price">${acc.price} 💰</div><button class="item-btn btn-buy" onclick="buyAcc('${acc.id}', ${acc.price})">КУПИТИ</button>` : `<div class="item-price">${acc.price} 💰</div><button class="item-btn btn-locked">НЕМАЄ ГРОШЕЙ</button>`));
+                card.innerHTML = `<div class="acc-emoji">${acc.icon}</div><div style="font-weight:bold; margin-bottom:5px;">${acc.name}</div>${btnHtml}`;
+                gridAcc.appendChild(card);
+            });
+            glowsDB.forEach(glow => {
+                const card = document.createElement('div'); card.className = 'shop-item glow-card';
+                const isUnlocked = unlockedGlows.includes(glow.id); const isEquipped = currentGlowId === glow.id;
+                let btnHtml = isEquipped ? `<button class="item-btn btn-equipped">ВИБРАНО</button>` : (isUnlocked ? `<button class="item-btn btn-equip" onclick="equipGlow('${glow.id}')">ВИБРАТИ</button>` : (userCoins >= glow.price ? `<div class="item-price">${glow.price} 💰</div><button class="item-btn btn-buy" onclick="buyGlow('${glow.id}', ${glow.price})">КУПИТИ</button>` : `<div class="item-price">${glow.price} 💰</div><button class="item-btn btn-locked">НЕМАЄ ГРОШЕЙ</button>`));
+                let glowStyle = (glow.id === 'none') ? "border: 1px solid #555;" : `box-shadow: 0 0 15px ${glow.color}, 0 0 30px ${glow.color} inset; border: 1px solid ${glow.color};`;
+                card.innerHTML = `<div class="item-preview" style="background-color: transparent; ${glowStyle}"></div><div style="font-weight:bold; margin-bottom:5px; color:${glow.color}">${glow.name}</div>${btnHtml}`;
+                gridGlows.appendChild(card);
+            });
+            backgroundsDB.forEach(bg => {
+                const card = document.createElement('div'); card.className = 'shop-item';
+                const isUnlocked = unlockedBgs.includes(bg.id); const isEquipped = currentBgId === bg.id;
+                let btnHtml = isEquipped ? `<button class="item-btn btn-equipped">ВИБРАНО</button>` : (isUnlocked ? `<button class="item-btn btn-equip" onclick="equipBg('${bg.id}')">ВИБРАТИ</button>` : (userCoins >= bg.price ? `<div class="item-price">${bg.price} 💰</div><button class="item-btn btn-buy" onclick="buyBg('${bg.id}', ${bg.price})">КУПИТИ</button>` : `<div class="item-price">${bg.price} 💰</div><button class="item-btn btn-locked">НЕМАЄ ГРОШЕЙ</button>`));
+                let bgPreview = bg.type === 'color' ? `background-color: ${bg.value}` : `background-image: ${bg.value}; background-size: cover;`;
+                card.innerHTML = `<div class="item-preview" style="${bgPreview}; border: 1px solid #555;"></div><div style="font-weight:bold; margin-bottom:5px;">${bg.name}</div>${btnHtml}`;
+                gridBgs.appendChild(card);
+            });
+        }
+
+        // --- ВИБІР СКЛАДНОСТІ ---
+        function selectDifficulty(diff) {
+            if (diff === 'hardcore' && !isHardcoreUnlocked) return;
+            selectedDifficulty = diff;
+            updateMainMenuCards();
+        }
+        function updateMainMenuCards() {
+            document.querySelectorAll('.diff-card').forEach(c => c.className = 'diff-card');
+            document.getElementById('diff-' + selectedDifficulty).classList.add(selectedDifficulty === 'hardcore' ? 'hardcore' : 'active');
+            document.getElementById('diff-' + selectedDifficulty).classList.add('active');
+            updateHardcoreLock();
+        }
+        function updateHardcoreLock() {
+            const hcCard = document.getElementById('diff-hardcore');
+            const lock = document.getElementById('hardcoreLock');
+            if (isHardcoreUnlocked) { 
+                hcCard.classList.remove('locked'); 
+                lock.style.display = 'none'; 
+            } else { 
+                hcCard.classList.add('locked'); 
+                lock.style.display = 'flex'; 
+            }
+        }
+        updateMainMenuCards(); // Init
+
+        function startDemoMode() {
+            isDemoMode = true; isGameRunning = false;
+            isInvulnerable = false; isFrozen = false; isDying = false; isRecovering = false;
+            freezeOverlay.style.opacity = 0;
+            canvas.classList.remove('grayscale-death'); 
+            
+            score = 0; lives = 3; level = 0; items = [];
+            uiLayer.classList.add('hidden');
+            gameWrapper.style.cursor = 'default'; 
+            
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            if (!document.hidden) scheduleNextSpawn(); // Only spawn if visible
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            lastTime = performance.now();
+            animationFrameId = requestAnimationFrame(update);
+        }
+        function stopDemoMode() { 
+            isDemoMode = false; isGameRunning = false; 
+            clearTimeout(spawnTimeout);
+        }
+
+        function showMainMenu() {
+            document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+            if (document.exitPointerLock) document.exitPointerLock();
+            gameWrapper.style.cursor = 'default';
+
+            isPaused = false;
+            isGameRunning = false;
+            isDying = false; isRecovering = false;
+            canvas.classList.remove('grayscale-death');
+            items = [];
+            updateBackground(); 
+
+            hitOverlay.style.boxShadow = 'none';
+
+            glowContainer.style.backgroundColor = defaultGlowColor;
+            glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+            comboIntensity = 0;
+            comboOverlay.style.boxShadow = 'none';
+            comboOverlay.style.opacity = 0;
+            freezeOverlay.style.opacity = 0;
+            
+            gameOverScreen.classList.remove('visible');
+            pauseMenu.classList.remove('visible'); 
+            shopMenu.classList.remove('visible');
+            infoMenu.classList.remove('visible');
+            settingsMenu.classList.remove('visible');
+            mainMenu.classList.add('visible');
+            
+            updateMenuUI(); updateMainMenuCards(); 
+            
+            // Explicitly STOP GameOver music
+            if(sounds['gameover']) {
+                sounds['gameover'].pause();
+                sounds['gameover'].currentTime = 0;
+            }
+            
+            stopAllMusic(true);
+            let menuTrack = sounds['menu'];
+            if(menuTrack && !isMusicMuted) {
+                menuTrack.volume = 0;
+                menuTrack.play();
+                fadeAudio(menuTrack, volMusic, 1000);
+            }
+            
+            startDemoMode();
+        }
+
+        function quickRestart() {
+            if(sounds['gameover']) {
+                sounds['gameover'].pause();
+                sounds['gameover'].currentTime = 0;
+            }
+            stopAllMusic(); 
+            startGame();
+        }
+
+        function activateShield() {
+            isInvulnerable = true;
+            if (!isDemoMode) triggerDamageEffect();
+            let duration = 3000; 
+            if (selectedDifficulty === 'easy' || selectedDifficulty === 'normal') duration = 5000;
+            if (selectedDifficulty === 'hardcore') duration = 1500;
+            setTimeout(() => { isInvulnerable = false; }, duration);
+        }
+
+        function activateFreeze() {
+            isFrozen = true;
+            isRecovering = false; // Ensure recovering is off when frozen starts
+            playSound('freeze');
+            freezeOverlay.style.opacity = 1;
+            
+            const msg = document.getElementById('freezeMessage');
+            msg.classList.add('active');
+            setTimeout(() => msg.classList.remove('active'), 1500);
+
+            if(freezeTimeout) clearTimeout(freezeTimeout);
+            freezeTimeout = setTimeout(() => {
+                isFrozen = false;
+                isRecovering = true; // START SMOOTH RECOVERY
+                recoveryStartTime = Date.now(); // RESET TIMER
+                freezeOverlay.style.opacity = 0; 
+            }, 3000);
+        }
+
+        function startGame() {
+            isDemoMode = false;
+            isInvulnerable = false; isFrozen = false; isDying = false; isRecovering = false;
+            canvas.classList.remove('grayscale-death');
+            freezeOverlay.style.opacity = 0;
+            isPaused = false;
+            comboIntensity = 0;
+            lastHeartSpawnTime = 0;
+            lastDamageTime = 0; 
+            isProcessingDeath = false;
+            hitOverlay.style.boxShadow = 'none';
+            
+            mouseTargetX = 425; 
+            player.x = 425;
+
+            if (settingPointerLock) canvas.requestPointerLock();
+            else if (!settingTouchControl) gameWrapper.style.cursor = 'none';
+            else gameWrapper.style.cursor = 'default';
+
+            glowContainer.style.backgroundColor = defaultGlowColor;
+            glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+            
+            mainMenu.classList.remove('visible');
+            gameOverScreen.classList.remove('visible');
+            uiLayer.classList.remove('hidden');
+            
+            if(sounds['menu'] && !sounds['menu'].paused) {
+                fadeAudio(sounds['menu'], 0, 1000, () => {
+                    sounds['menu'].pause();
+                    sounds['menu'].currentTime = 0;
+                });
+            }
+            if(sounds['shop'] && !sounds['shop'].paused) {
+                fadeAudio(sounds['shop'], 0, 500, () => {
+                    sounds['shop'].pause();
+                    sounds['shop'].currentTime = 0;
+                });
+            }
+
+            score = 0; lives = 3; level = 0; items = [];
+            player.trail = []; 
+            isGameRunning = true;
+            updateUI(); 
+            
+            gameStartTime = Date.now();
+            currentMusicIndex = Math.floor(Math.random() * musicFiles.length); // Random start
+            playMusicTrack(currentMusicIndex);
+
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            scheduleNextSpawn();
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            lastTime = performance.now();
+            lastScoreTime = performance.now();
+            animationFrameId = requestAnimationFrame(update);
+        }
+
+        let isGameOverProcessingCheck = false; 
+
+        function gameOver() {
+            if(isGameOverProcessingCheck) return; 
+            isGameOverProcessingCheck = true; 
+            
+            isGameRunning = false;
+            isDying = false; isRecovering = false;
+            canvas.classList.remove('grayscale-death'); 
+            hitOverlay.style.boxShadow = 'none';
+            
+            if (document.pointerLockElement === canvas) document.exitPointerLock();
+            gameWrapper.style.cursor = 'default';
+            
+            clearTimeout(spawnTimeout); 
+            if(freezeTimeout) clearTimeout(freezeTimeout);
+            
+            stopAllMusic(); 
+            playSound('gameover');
+
+            let threshold = 500; 
+            if (selectedDifficulty === 'normal') threshold = 250;
+            if (selectedDifficulty === 'hard') threshold = 100;
+            if (selectedDifficulty === 'hardcore') threshold = 100;
+
+            let earned = Math.floor(score / threshold);
+            if (earned > 0) {
+                userCoins += earned;
+                localStorage.setItem('coins', userCoins);
+            }
+
+            // --- SAVE SYSTEM UPDATE (V2) ---
+            let currentBest = allScores[selectedGameMode][selectedDifficulty];
+            let isNewRecord = false;
+
+            if (score > currentBest) {
+                // Update score for specific Mode + Difficulty
+                allScores[selectedGameMode][selectedDifficulty] = score;
+                localStorage.setItem('detailedScores', JSON.stringify(allScores));
+                isNewRecord = true;
+            }
+
+            if (selectedDifficulty === 'hard' && score >= 3000 && !isHardcoreUnlocked) {
+                isHardcoreUnlocked = true;
+                localStorage.setItem('hardcoreUnlocked', 'true');
+                updateHardcoreLock();
+                const unlockMsg = document.getElementById('unlockMessage');
+                unlockMsg.classList.add('active');
+                playSound('levelup');
+                setTimeout(() => unlockMsg.classList.remove('active'), 3000);
+            }
+
+            let gameDuration = Date.now() - gameStartTime;
+            let seconds = Math.floor(gameDuration / 1000);
+            let mins = Math.floor(seconds / 60);
+            let secs = seconds % 60;
+            let timeString = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+            document.getElementById('finalTime').innerText = "Час: " + timeString;
+            document.getElementById('finalScore').innerText = "Рахунок: " + score;
+            document.getElementById('earnedCoinsText').innerText = "+" + earned + " Монет 💰";
+            
+            // SHOW NEW RECORD MSG
+            const recordMsg = document.getElementById('newRecordMsg');
+            if (isNewRecord) {
+                recordMsg.style.display = "block";
+                playSound('levelup'); 
+            } else {
+                recordMsg.style.display = "none";
+            }
+            
+            gameOverScreen.classList.add('visible');
+            glowContainer.style.backgroundColor = "#ff0000"; 
+            glowContainer.style.boxShadow = "0 0 60px red";
+        }
+
+        function updateUI() {
+            if (isDemoMode) return;
+            document.getElementById('scoreDisplay').innerText = score;
+            document.getElementById('levelDisplay').innerText = level;
+            document.getElementById('livesDisplay').innerText = "❤️".repeat(lives);
+            
+            let diffLabel = document.getElementById('gameDiffDisplay');
+            if(selectedDifficulty === 'easy') { diffLabel.innerText = "Легко"; diffLabel.style.color = "#2ecc71"; }
+            if(selectedDifficulty === 'normal') { diffLabel.innerText = "Норм"; diffLabel.style.color = "#ff9f43"; }
+            if(selectedDifficulty === 'hard') { diffLabel.innerText = "Складно"; diffLabel.style.color = "#ff4d4d"; }
+            if(selectedDifficulty === 'hardcore') { diffLabel.innerText = "ХАРДКОР"; diffLabel.style.color = "#ff0000"; }
+
+            let threshold = 500;
+            if (selectedDifficulty === 'normal') threshold = 250;
+            if (selectedDifficulty === 'hard' || selectedDifficulty === 'hardcore') threshold = 100;
+            let currentRunCoins = Math.floor(score / threshold);
+            document.getElementById('runCoinsDisplay').innerText = currentRunCoins;
+        }
+
+        // --- LEVELS ---
+        function checkLevelUp() {
+            let threshold = 250; 
+            if (selectedDifficulty === 'easy') threshold = 500;
+            if (selectedDifficulty === 'hard' || selectedDifficulty === 'hardcore') threshold = 100;
+
+            let calculatedLevel = Math.floor(score / threshold);
+            
+            if (calculatedLevel > level) {
+                let levelsGained = calculatedLevel - level;
+                level = calculatedLevel;
+                for(let i = 0; i < levelsGained; i++) {
+                    triggerLevelUp();
+                }
+                updateUI();
+            }
+        }
+
+        function triggerLevelUp() {
+            if (level > 0 && level % 10 === 0) {
+                playSound('levelup');
+                const msg = document.getElementById('levelUpMessage');
+                msg.innerText = level + " РІВЕНЬ!"; 
+                glowContainer.style.backgroundColor = "#ffd700"; 
+                glowContainer.style.boxShadow = "0 0 50px #ffd700";
+                msg.classList.add('active');
+                setTimeout(() => { 
+                    glowContainer.style.backgroundColor = defaultGlowColor;
+                    glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+                    msg.classList.remove('active'); 
+                }, 1200);
+            }
+        }
+
+        // --- ЛОГІКА ХВИЛЬ ---
+        function scheduleNextSpawn() {
+            if ((!isGameRunning || isDying) && !isDemoMode) return; 
+            // Anti-Pileup Check
+            if (document.hidden) return;
+
+            createWave();
+            let baseRate = difficultySettings[selectedDifficulty].spawnRate;
+            
+            if (selectedGameMode === 'dodge') baseRate = baseRate / 2.5; 
+
+            if (level > 1) baseRate -= (level * 15); 
+            if (baseRate < 150) baseRate = 150; 
+
+            let randomDelay = baseRate + Math.random() * 400;
+            spawnTimeout = setTimeout(scheduleNextSpawn, randomDelay);
+        }
+
+        function createWave() {
+            let maxItems = 1;
+            if (level >= 2) maxItems = 2;
+            if (level >= 5) maxItems = 3;
+            if (level >= 8) maxItems = 4; 
+            
+            if (selectedGameMode === 'dodge') maxItems += 1; 
+
+            let count = Math.ceil(Math.random() * maxItems);
+            
+            for(let i=0; i<count; i++) { 
+                spawnSingleEntity(i * 100, i); 
+            }
+        }
+
+        function spawnSingleEntity(yOffset, waveIndex) {
+            const size = 30; const x = Math.random() * (canvas.width - size);
+            let type = 'star'; const rnd = Math.random();
+            
+            let speedMultiplier;
+            if (level <= 30) {
+                speedMultiplier = level * 0.3; 
+            } else {
+                speedMultiplier = (30 * 0.3) + ((level - 30) * 0.1); 
+            }
+            
+            let baseSpeed = difficultySettings[selectedDifficulty].speed + Math.random() * 2 + speedMultiplier;
+            let visualScale = 1;
+
+            let heartChance = 0.10; 
+            if (selectedDifficulty === 'easy') heartChance = 0.15;
+            if (selectedDifficulty === 'hard') heartChance = 0.05;
+            if (selectedDifficulty === 'hardcore') heartChance = 0.02;
+
+            let damageCooldown = 10000; 
+            if (selectedDifficulty === 'easy') damageCooldown = 5000;
+            if (selectedDifficulty === 'hard') damageCooldown = 15000;
+            if (selectedDifficulty === 'hardcore') damageCooldown = 20000;
+
+            const now = Date.now();
+            let canSpawnHeart = 
+                (lives < 3) && 
+                (now - lastDamageTime > damageCooldown) && 
+                (now - lastHeartSpawnTime > 5000); 
+
+            if (rnd < 0.03) { 
+                type = 'freeze';
+                baseSpeed = baseSpeed * 1.2; 
+            }
+            else if (canSpawnHeart && rnd < (0.03 + heartChance)) {
+                type = 'heart'; 
+                lastHeartSpawnTime = now; 
+            }
+            else if (rnd > 0.10 && rnd < 0.13 && selectedGameMode !== 'dodge') { type = 'gem'; baseSpeed = 27; } 
+            else {
+                let rockChance = difficultySettings[selectedDifficulty].rockChance + (level * 0.02);
+                if (rockChance > 0.6) rockChance = 0.6;
+                if (yOffset > 0) rockChance *= 0.5; 
+                
+                if (selectedGameMode === 'dodge') {
+                    if (type !== 'heart' && type !== 'freeze') type = 'rock';
+                } else {
+                    type = Math.random() < rockChance ? 'rock' : 'star';
+                }
+
+                if (type === 'star' && waveIndex >= 2) return; 
+                
+                if (type === 'rock' && level >= 25 && Math.random() < 0.005) {
+                    type = 'death_rock';
+                    visualScale = 1.3; 
+                }
+                
+                let safeX = x;
+                let attempts = 0;
+                while(attempts < 10) {
+                    let conflict = false;
+                    for(let item of items) {
+                        if(item.y < 150 && Math.abs(item.x - safeX) < (size * 2.5)) {
+                             if (selectedGameMode === 'dodge') {
+                                 if (Math.abs(item.x - safeX) < size * 4) { 
+                                     conflict = true; break;
+                                 }
+                             } else {
+                                 if ((type === 'star' && item.type === 'rock') || (type === 'rock' && item.type === 'star')) {
+                                     conflict = true; break;
+                                 }
+                             }
+                        }
+                    }
+                    if(!conflict) break;
+                    safeX = Math.random() * (canvas.width - size);
+                    attempts++;
+                }
+
+                if (type === 'rock') visualScale = 0.7 + Math.random() * 0.7;
+                if (type === 'star') visualScale = 0.7 + Math.random() * 0.6;
+                
+                items.push({ x: safeX, y: -30 - yOffset, size: size, type: type, speed: baseSpeed, scale: visualScale });
+                return;
+            }
+            items.push({ x: x, y: -30 - yOffset, size: size, type: type, speed: baseSpeed, scale: visualScale });
+        }
+
+        // --- ОНОВЛЕНИЙ ШІ ---
+        let botTarget = null;
+        function updateAI() {
+            if (botTarget && (!items.includes(botTarget) || botTarget.y > player.y + 10)) {
+                botTarget = null;
+            }
+
+            let threat = null;
+            let minDistToThreat = 450; 
+
+            for (let item of items) {
+                let isHarmful = item.type === 'rock' || item.type === 'death_rock' || (selectedGameMode === 'dodge' && item.type === 'freeze');
+                if (isHarmful) {
+                    const distY = player.y - item.y;
+                    if (distY > 0 && distY < minDistToThreat) {
+                        if (item.x < botCurrentX + player.width + 60 && item.x + item.size > botCurrentX - 60) {
+                            threat = item;
+                            minDistToThreat = distY;
+                        }
+                    }
+                }
+            }
+
+            let desiredX = botCurrentX;
+
+            if (threat) {
+                const threatCenter = threat.x + threat.size / 2;
+                if (botCurrentX + player.width/2 < threatCenter) {
+                    desiredX = threat.x - player.width - 80; 
+                } else {
+                    desiredX = threat.x + threat.size + 80; 
+                }
+            } 
+            else {
+                if (selectedGameMode === 'dodge') {
+                    if (Math.abs(botCurrentX - wanderTarget) < 50) {
+                        wanderTarget = Math.random() * (canvas.width - player.width);
+                    }
+                    desiredX = wanderTarget;
+                } else {
+                    if (!botTarget) {
+                        let availableStars = items.filter(i => i.type !== 'rock' && i.type !== 'death_rock' && i.type !== 'freeze' && i.y < player.y);
+                        if (availableStars.length > 0) {
+                            availableStars.sort((a, b) => (player.y - a.y) - (player.y - b.y));
+                            botTarget = availableStars[0];
+                        }
+                    }
+
+                    if (botTarget) {
+                        desiredX = botTarget.x - (player.width/2) + (botTarget.size/2);
+                    } else {
+                        if (Math.abs(botCurrentX - wanderTarget) < 50) {
+                            wanderTarget = Math.random() * (canvas.width - player.width);
+                        }
+                        desiredX = wanderTarget + Math.sin(Date.now() / 1000) * 30;
+                    }
+                }
+            }
+            
+            botCurrentX += (desiredX - botCurrentX) * 0.05;
+
+            if (botCurrentX < 0) botCurrentX = 0;
+            if (botCurrentX > canvas.width - player.width) botCurrentX = canvas.width - player.width;
+            
+            player.x = botCurrentX;
+        }
+
+        function triggerDeathEffect() {
+            if (isProcessingDeath) return; 
+            isProcessingDeath = true; 
+            isDying = true; // Активує слоу-мо в update()
+            isGameOverProcessingCheck = false; 
+            
+            // Fade out current game music
+            let activeTrack = sounds['track_' + currentMusicIndex];
+            if(activeTrack) fadeAudio(activeTrack, 0, 1500, ()=> { activeTrack.pause(); });
+
+            canvas.classList.add('grayscale-death');
+            playSound('loose'); 
+
+            const msg = document.getElementById('deathMessage'); msg.classList.add('active');
+            
+            // Затримка перед справжнім Game Over для насолоди слоу-мо
+            setTimeout(() => { msg.classList.remove('active'); gameOver(); }, 2000);
+        }
+
+        function triggerDamageEffect() {
+            glowContainer.style.backgroundColor = "#ff0000"; 
+            glowContainer.style.boxShadow = "0 0 50px #ff0000";
+            setTimeout(() => { 
+                glowContainer.style.backgroundColor = defaultGlowColor;
+                glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+            }, 200);
+        }
+        
+        function triggerHealEffect() {
+            playSound('heal'); 
+            glowContainer.style.backgroundColor = "#00ff00"; 
+            glowContainer.style.boxShadow = "0 0 50px #00ff00";
+            setTimeout(() => { 
+                glowContainer.style.backgroundColor = defaultGlowColor;
+                glowContainer.style.boxShadow = `0 0 30px ${defaultGlowColor === '#505050' ? 'rgba(0,0,0,0.5)' : defaultGlowColor}`;
+            }, 300);
+        }
+
+        function getItemColor(type) {
+            if (type === 'star') return "#f9ed69";
+            if (type === 'rock') return "#ff0000";
+            if (type === 'death_rock') return "#000000";
+            if (type === 'heart') return "#00ff00";
+            if (type === 'gem') return "#d300ff";
+            if (type === 'freeze') return "#00f7ff";
+            return "#ffffff";
+        }
+
+        function drawAccessories(x, y, w, h) {
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+
+            if (currentAccId === 'cat_ears') {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 10, y - 15);
+                ctx.lineTo(x + 20, y);
+                ctx.moveTo(x + w, y);
+                ctx.lineTo(x + w - 10, y - 15);
+                ctx.lineTo(x + w - 20, y);
+                ctx.fill();
+            } else if (currentAccId === 'devil_horns') {
+                ctx.fillStyle = "#ff0000";
+                ctx.beginPath();
+                ctx.moveTo(x + 5, y);
+                ctx.quadraticCurveTo(x - 5, y - 15, x + 15, y - 10);
+                ctx.lineTo(x + 10, y);
+                ctx.moveTo(x + w - 5, y);
+                ctx.quadraticCurveTo(x + w + 5, y - 15, x + w - 15, y - 10);
+                ctx.lineTo(x + w - 10, y);
+                ctx.fill();
+            } else if (currentAccId === 'halo') {
+                ctx.strokeStyle = "#ffd700";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(x + w/2, y - 15, 15, 5, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (currentAccId === 'glasses') {
+                 ctx.fillStyle = "black";
+                 ctx.fillRect(x + 5, y + 12, 18, 10);
+                 ctx.fillRect(x + 27, y + 12, 18, 10);
+                 ctx.fillRect(x + 23, y + 15, 4, 2);
+            }
+        }
+
+        function drawEyes(x, y, w, h) {
+            if (currentAccId === 'glasses') return; 
+
+            let eyeColor = "white";
+            if (currentAccId === 'red_eyes') eyeColor = "#ff0000";
+            
+            ctx.fillStyle = eyeColor;
+
+            if (currentAccId === 'cyclops') {
+                ctx.fillRect(x + w/2 - 10, y + 15, 20, 20); 
+            } else {
+                ctx.fillRect(x + 10, y + 15, 10, 10);
+                ctx.fillRect(x + 30, y + 15, 10, 10);
+            }
+        }
+        
+        function drawTrail() {
+            if (player.trail.length < 2) return;
+            
+            for (let i = 0; i < player.trail.length; i++) {
+                const point = player.trail[i];
+                let alpha = (i / player.trail.length) * 0.4; 
+                
+                let trailColor = isFrozen ? "#00f7ff" : player.color;
+                
+                if (isInvulnerable && !isDemoMode) {
+                    const pulseAlpha = ((Math.sin(Date.now() / 100) + 1) / 2) * 0.6;
+                    trailColor = `rgba(255, 0, 0, ${pulseAlpha + 0.2})`; 
+                }
+
+                ctx.fillStyle = trailColor; 
+                ctx.globalAlpha = alpha;
+                ctx.fillRect(point.x, point.y, player.width, player.height);
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function update(currentTime) {
+            if (!isGameRunning && !isDemoMode) return;
+            
+            if (!lastTime) lastTime = currentTime;
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            if (isPaused) return;
+
+            let safeDelta = Math.min(deltaTime, 100);
+            if (isDying) safeDelta = safeDelta * 0.1; 
+            const timeScale = safeDelta / 16.67; 
+            
+            if (!isDemoMode && !isPaused && !isDying) {
+                if (currentTime - lastScoreTime >= 1000) {
+                    if (selectedGameMode === 'dodge') {
+                        score += 10;
+                    } else {
+                        score += 1; 
+                    }
+                    lastScoreTime = currentTime;
+                    checkLevelUp(); // Check level up every second
+                    updateUI();
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (isDemoMode) {
+                updateAI();
+            } else {
+                let currentSpeed = player.speed;
+                if (isFrozen) currentSpeed = currentSpeed / 3;
+                if (isDying) currentSpeed = currentSpeed * 0.5; 
+
+                if(rightPressed && player.x < canvas.width - player.width) {
+                    player.x += currentSpeed * timeScale;
+                    mouseTargetX = player.x; 
+                } else if(leftPressed && player.x > 0) {
+                    player.x -= currentSpeed * timeScale;
+                    mouseTargetX = player.x;
+                } else {
+                    if (isFrozen || isDying) {
+                         const dx = mouseTargetX - player.x;
+                         player.x += dx * 0.05 * timeScale; 
+                    } else if (isRecovering) {
+                         // --- ОНОВЛЕНА ЛОГІКА ВІДНОВЛЕННЯ ---
+                         let elapsed = Date.now() - recoveryStartTime;
+                         let duration = 500; // 0.5 сек для відновлення
+                         let t = Math.min(elapsed / duration, 1); // 0 -> 1
+
+                         // Плавна крива прискорення: спочатку 0.1, в кінці 1.0
+                         let dynamicSmoothing = 0.1 + (0.9 * (t * t)); 
+
+                         const dx = mouseTargetX - player.x;
+                         player.x += dx * dynamicSmoothing * timeScale;
+
+                         // Якщо час вийшов - примусово ставимо на місце
+                         if (t >= 1.0) {
+                             isRecovering = false;
+                             player.x = mouseTargetX;
+                         }
+                    } else {
+                         player.x = mouseTargetX;
+                    }
+                }
+            }
+            
+            player.trail.push({x: player.x, y: player.y});
+            if (player.trail.length > 8) player.trail.shift();
+            drawTrail();
+
+            let drawColor = player.color;
+            if (isFrozen) drawColor = "#00f7ff"; 
+
+            if (isInvulnerable && !isDemoMode) {
+                const pulseAlpha = ((Math.sin(Date.now() / 100) + 1) / 2) * 0.6;
+                ctx.fillStyle = drawColor;
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
+                
+                let shieldOpacity = pulseAlpha * 0.6; 
+                comboOverlay.style.boxShadow = "inset 0 0 50px red"; 
+                comboOverlay.style.opacity = shieldOpacity;
+            } else {
+                ctx.fillStyle = drawColor;
+                if (comboIntensity <= 0.01) {
+                    comboOverlay.style.boxShadow = 'none';
+                    comboOverlay.style.opacity = 0;
+                }
+            }
+
+            if (currentGlowId !== 'none') {
+                const glowObj = glowsDB.find(g => g.id === currentGlowId);
+                const glowColor = glowObj ? glowObj.color : 'transparent';
+                ctx.shadowBlur = 20; 
+                ctx.shadowColor = (isInvulnerable && !isDemoMode) ? "#ff0000" : (isFrozen ? "#00f7ff" : glowColor);
+            }
+            
+            if(!isInvulnerable || isDemoMode) ctx.fillRect(player.x, player.y, player.width, player.height);
+            else ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            ctx.shadowBlur = 0; 
+            
+            drawAccessories(player.x, player.y, player.width, player.height);
+            drawEyes(player.x, player.y, player.width, player.height);
+            
+            if (!isDemoMode && !isInvulnerable) { // Комбо ефект тільки якщо немає щита
+                if (comboIntensity > 0) comboIntensity -= 0.005 * timeScale;
+                if (comboIntensity < 0) comboIntensity = 0;
+                
+                if (comboIntensity > 0.01) {
+                    const maxGlowSize = 100;
+                    const glowSize = Math.min(comboIntensity * 100, maxGlowSize); 
+                    const maxAlpha = 0.6;
+                    const alpha = Math.min(maxAlpha, comboIntensity);
+                    
+                    const color = player.color || '#00adb5';
+                    comboOverlay.style.boxShadow = `inset 0 0 ${glowSize}px ${color}`;
+                    comboOverlay.style.opacity = alpha;
+                }
+            }
+
+            const globalRot = Date.now() / 1000;
+
+            for (let index = items.length - 1; index >= 0; index--) {
+                let item = items[index];
+                item.y += item.speed * timeScale;
+                
+                let trailLen = 50; 
+                let grad = ctx.createLinearGradient(item.x, item.y, item.x, item.y - trailLen);
+                
+                if (item.type === 'death_rock') {
+                    grad = ctx.createLinearGradient(item.x, item.y, item.x, item.y - trailLen * 1.5);
+                    grad.addColorStop(0, "#ff0000"); 
+                    grad.addColorStop(1, "transparent");
+                } else {
+                    grad.addColorStop(0, getItemColor(item.type));
+                    grad.addColorStop(1, "transparent");
+                }
+                
+                ctx.globalAlpha = 0.4; 
+                ctx.fillStyle = grad;
+                const currentSize = item.size * (item.scale || 1);
+                ctx.fillRect(item.x + (currentSize/4), item.y - trailLen, currentSize/2, trailLen);
+                ctx.globalAlpha = 1.0;
+
+                ctx.beginPath();
+                if (item.type === 'star' || item.type === 'freeze') {
+                    let iColor = item.type === 'star' ? "#f9ed69" : "#00f7ff";
+                    ctx.shadowBlur = 15; ctx.shadowColor = iColor; ctx.fillStyle = iColor;
+                    
+                    const cx = item.x + item.size/2; const cy = item.y + item.size/2;
+                    const outerRadius = currentSize/2; const innerRadius = currentSize/4;
+                    for(let i=0; i<10; i++){
+                        const angle = (Math.PI/5)*i - Math.PI/2 + (globalRot); 
+                        const r = (i%2===0)? outerRadius : innerRadius;
+                        const px = cx + Math.cos(angle)*r; const py = cy + Math.sin(angle)*r;
+                        if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+                
+                } else if (item.type === 'rock') {
+                    ctx.fillStyle = "#ff0000"; 
+                    const cx = item.x + item.size/2; const cy = item.y + item.size/2; const spikes = 6;
+                    const outerRadius = currentSize/1.5; const innerRadius = currentSize/3;
+                    for(let i=0; i<spikes*2; i++){
+                        const r = (i%2 === 0) ? outerRadius : innerRadius;
+                        const angle = (Math.PI * i) / spikes + (globalRot * 2); 
+                        const px = cx + Math.cos(angle) * r; const py = cy + Math.sin(angle) * r;
+                        if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    } ctx.closePath(); ctx.fill();
+
+                } else if (item.type === 'death_rock') {
+                    ctx.fillStyle = "#000000"; 
+                    ctx.shadowBlur = 30; ctx.shadowColor = "#ff0000"; 
+                    const cx = item.x + item.size/2; const cy = item.y + item.size/2; const spikes = 8;
+                    const outerRadius = currentSize/1.3; const innerRadius = currentSize/2.5;
+                    for(let i=0; i<spikes*2; i++){
+                        const r = (i%2 === 0) ? outerRadius : innerRadius;
+                        const angle = (Math.PI * i) / spikes + (globalRot * 3); 
+                        const px = cx + Math.cos(angle) * r; const py = cy + Math.sin(angle) * r;
+                        if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    } ctx.closePath(); ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                } else if (item.type === 'heart') {
+                    ctx.fillStyle = "#00ff00"; ctx.fillRect(item.x, item.y, item.size, item.size);
+                    ctx.fillStyle = "white"; ctx.fillRect(item.x + 10, item.y + 5, 10, 20); ctx.fillRect(item.x + 5, item.y + 10, 20, 10);
+                } else if (item.type === 'gem') {
+                    ctx.shadowBlur = 100; ctx.shadowColor = "#ffd700"; ctx.fillStyle = "#ffd700";
+                    const cx = item.x + item.size/2; const cy = item.y + item.size/2;
+                    const outerRadius = item.size/1.5; const innerRadius = item.size/3;
+                    for(let i=0; i<10; i++){
+                        const angle = (Math.PI/5)*i - Math.PI/2 + (globalRot * 4); 
+                        const r = (i%2===0)? outerRadius : innerRadius;
+                        const px = cx + Math.cos(angle)*r; const py = cy + Math.sin(angle)*r;
+                        if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+                }
+
+                const hitboxOffset = (item.size - currentSize) / 2;
+                if (
+                    player.x < item.x + hitboxOffset + currentSize &&
+                    player.x + player.width > item.x + hitboxOffset &&
+                    player.y < item.y + hitboxOffset + currentSize &&
+                    player.y + player.height > item.y + hitboxOffset
+                ) {
+                    
+                    if (!isDying) {
+                        if (item.type === 'star') {
+                            score += 10;
+                            if (!isDemoMode) {
+                                playSound('pickup');
+                                checkLevelUp(); // NEW: Check every score addition
+                                comboIntensity = Math.min(1.0, comboIntensity + 0.2); 
+                            }
+                        } else if (item.type === 'heart') {
+                            if (lives < 3) lives++; 
+                            if (!isDemoMode) triggerHealEffect();
+                        } else if (item.type === 'gem') {
+                            score += 100;
+                            if (!isDemoMode) { 
+                                playSound('bonus'); 
+                                checkLevelUp(); // NEW: Check every score addition
+                                comboIntensity = Math.min(1.0, comboIntensity + 0.4);
+                            }
+                        } else if (item.type === 'freeze') {
+                            if (!isDemoMode) {
+                                activateFreeze();
+                            }
+                        } else if (item.type === 'rock') {
+                            if (!isInvulnerable) {
+                                lives--;
+                                lastDamageTime = Date.now(); 
+                                playSound('hit');
+                                comboIntensity = 0; 
+                                if (lives <= 0) {
+                                    if (isDemoMode) { 
+                                        lives = 3; score = 0; items = []; createWave(); 
+                                    }
+                                    else { 
+                                        document.getElementById('livesDisplay').innerText = "💀";
+                                        triggerDeathEffect(); items.splice(index, 1); return; 
+                                    }
+                                } else {
+                                    if (!isDemoMode) {
+                                        activateShield(); 
+                                    }
+                                }
+                            }
+                        } else if (item.type === 'death_rock') {
+                            if (!isInvulnerable || isDemoMode) {
+                                lives = 0;
+                                playSound('death_rock'); 
+                                comboIntensity = 0;
+                                if (isDemoMode) { 
+                                    lives = 3; score = 0; items = []; createWave();
+                                }
+                                else {
+                                     document.getElementById('livesDisplay').innerText = "💀";
+                                     triggerDeathEffect(); items.splice(index, 1); return;
+                                }
+                            }
+                        }
+                        items.splice(index, 1);
+                        if(!isDemoMode) updateUI();
+                    }
+                } else if (item.y > canvas.height) {
+                    if (selectedGameMode === 'catch' && !isDemoMode && item.type === 'star' && !isDying) {
+                        lives--;
+                        lastDamageTime = Date.now(); 
+                        playSound('hit');
+                        // Use Hit Overlay instead of border
+                        hitOverlay.style.boxShadow = "inset 0 0 50px red";
+                        setTimeout(() => hitOverlay.style.boxShadow = "none", 100);
+                        if (lives <= 0) {
+                             document.getElementById('livesDisplay').innerText = "💀";
+                             triggerDeathEffect(); items.splice(index, 1); return;
+                        } else updateUI();
+                    }
+                    items.splice(index, 1);
+                }
+            }
+            
+            animationFrameId = requestAnimationFrame(update);
+        }
+    </script>
+</body>
+</html>
